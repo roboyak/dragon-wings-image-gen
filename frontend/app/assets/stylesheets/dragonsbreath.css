@@ -1,0 +1,165 @@
+/* Dragon Wings C2 Theme - Extracted from dragonsbreath.layer3dev.io */
+
+/* iOS Safe Area Support */
+:root {
+  --safe-area-inset-top: env(safe-area-inset-top);
+  --safe-area-inset-right: env(safe-area-inset-right);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom);
+  --safe-area-inset-left: env(safe-area-inset-left);
+}
+
+/* LIGHT MODE */
+:root {
+  --button-outline: rgba(0,0,0, .10);
+  --badge-outline: rgba(0,0,0, .05);
+  --opaque-button-border-intensity: -8;
+  --elevate-1: rgba(0,0,0, .03);
+  --elevate-2: rgba(0,0,0, .08);
+
+  --background: 220 5% 96%;
+  --foreground: 220 15% 12%;
+  --border: 220 8% 88%;
+  --card: 220 6% 94%;
+  --card-foreground: 220 15% 15%;
+  --card-border: 220 8% 86%;
+  --sidebar: 220 6% 92%;
+  --sidebar-foreground: 220 15% 18%;
+  --sidebar-border: 220 8% 84%;
+  --sidebar-primary: 200 100% 42%;
+  --sidebar-primary-foreground: 200 20% 98%;
+  --sidebar-accent: 220 8% 86%;
+  --sidebar-accent-foreground: 220 15% 20%;
+  --sidebar-ring: 200 100% 55%;
+  --popover: 220 8% 88%;
+  --popover-foreground: 220 15% 18%;
+  --popover-border: 220 10% 82%;
+  --primary: 200 100% 42%;
+  --primary-foreground: 200 20% 98%;
+  --secondary: 220 10% 82%;
+  --secondary-foreground: 220 15% 20%;
+  --muted: 220 12% 85%;
+  --muted-foreground: 220 12% 32%;
+  --accent: 220 15% 84%;
+  --accent-foreground: 220 15% 22%;
+  --destructive: 0 84% 48%;
+  --destructive-foreground: 0 10% 98%;
+  --input: 220 15% 72%;
+  --ring: 200 100% 55%;
+
+  --font-sans: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: "JetBrains Mono", "Fira Code", Menlo, monospace;
+  --radius: .5rem;
+
+  --shadow-2xs: 0px 1px 2px 0px hsl(220 15% 20% / 0.05);
+  --shadow-xs: 0px 1px 3px 0px hsl(220 15% 20% / 0.08);
+  --shadow-sm: 0px 2px 4px -1px hsl(220 15% 20% / 0.06), 0px 1px 2px -1px hsl(220 15% 20% / 0.08);
+  --shadow: 0px 4px 6px -1px hsl(220 15% 20% / 0.08), 0px 2px 4px -1px hsl(220 15% 20% / 0.06);
+  --shadow-md: 0px 6px 12px -2px hsl(220 15% 20% / 0.10), 0px 2px 4px -1px hsl(220 15% 20% / 0.06);
+  --shadow-lg: 0px 10px 20px -4px hsl(220 15% 20% / 0.12), 0px 4px 6px -2px hsl(220 15% 20% / 0.08);
+  --shadow-xl: 0px 20px 30px -6px hsl(220 15% 20% / 0.15), 0px 8px 10px -4px hsl(220 15% 20% / 0.10);
+  --shadow-2xl: 0px 25px 50px -12px hsl(220 15% 20% / 0.20);
+}
+
+/* DARK MODE */
+.dark {
+  --button-outline: rgba(255,255,255, .10);
+  --badge-outline: rgba(255,255,255, .05);
+  --opaque-button-border-intensity: 9;
+  --elevate-1: rgba(255,255,255, .04);
+  --elevate-2: rgba(255,255,255, .09);
+
+  --background: 220 15% 8%;
+  --foreground: 220 15% 95%;
+  --border: 220 15% 20%;
+  --card: 220 15% 12%;
+  --card-foreground: 220 12% 92%;
+  --card-border: 220 15% 18%;
+  --sidebar: 220 15% 10%;
+  --sidebar-foreground: 220 12% 90%;
+  --sidebar-border: 220 15% 16%;
+  --sidebar-primary: 200 100% 55%;
+  --sidebar-primary-foreground: 200 15% 98%;
+  --sidebar-accent: 220 20% 16%;
+  --sidebar-accent-foreground: 220 10% 88%;
+  --sidebar-ring: 200 100% 55%;
+  --popover: 220 20% 16%;
+  --popover-foreground: 220 12% 90%;
+  --popover-border: 220 18% 22%;
+  --primary: 200 100% 55%;
+  --primary-foreground: 200 15% 98%;
+  --secondary: 220 18% 22%;
+  --secondary-foreground: 220 10% 88%;
+  --muted: 220 20% 18%;
+  --muted-foreground: 220 10% 70%;
+  --accent: 220 18% 20%;
+  --accent-foreground: 220 10% 86%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 10% 98%;
+  --input: 220 20% 35%;
+  --ring: 200 100% 55%;
+
+  --shadow-2xs: 0px 1px 2px 0px hsl(220 15% 4% / 0.40);
+  --shadow-xs: 0px 1px 3px 0px hsl(220 15% 4% / 0.50);
+  --shadow-sm: 0px 2px 4px -1px hsl(220 15% 4% / 0.45), 0px 1px 2px -1px hsl(220 15% 4% / 0.50);
+  --shadow: 0px 4px 6px -1px hsl(220 15% 4% / 0.50), 0px 2px 4px -1px hsl(220 15% 4% / 0.45);
+  --shadow-md: 0px 6px 12px -2px hsl(220 15% 4% / 0.55), 0px 2px 4px -1px hsl(220 15% 4% / 0.45);
+  --shadow-lg: 0px 10px 20px -4px hsl(220 15% 4% / 0.60), 0px 4px 6px -2px hsl(220 15% 4% / 0.50);
+  --shadow-xl: 0px 20px 30px -6px hsl(220 15% 4% / 0.65), 0px 8px 10px -4px hsl(220 15% 4% / 0.55);
+  --shadow-2xl: 0px 25px 50px -12px hsl(220 15% 4% / 0.70);
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+/* Hover/Active Elevation System */
+.hover-elevate {
+  position: relative;
+  z-index: 0;
+}
+
+.hover-elevate::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0px;
+  border-radius: inherit;
+  z-index: 999;
+}
+
+.hover-elevate:hover::after {
+  background-color: var(--elevate-1);
+}
+
+.border.hover-elevate::after {
+  inset: -1px;
+}
+
+/* iOS Glass Effects */
+.ios-glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dark .ios-glass {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* iOS Touch Feedback */
+.ios-touch-feedback {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
