@@ -1,0 +1,66 @@
+<div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-md w-full space-y-8 rounded-2xl border p-10" style="background-color: hsl(var(--card)); border-color: hsl(var(--card-border)); box-shadow: var(--shadow-xl);">
+    <!-- Header -->
+    <div class="text-center">
+      <h1 class="text-4xl font-bold" style="color: hsl(var(--primary));">
+        Dragon Wings AI Image Generator
+      </h1>
+      <h2 class="mt-6 text-3xl font-extrabold" style="color: hsl(var(--card-foreground));">
+        Create your account
+      </h2>
+      <p class="mt-2 text-sm" style="color: hsl(var(--muted-foreground));">
+        🖼️ AI-Powered Image Generation
+      </p>
+    </div>
+
+    <%= form_for(resource, as: resource_name, url: registration_path(resource_name), html: { class: "mt-8 space-y-6" }) do |f| %>
+      <%= render "devise/shared/error_messages", resource: resource %>
+
+      <div class="space-y-4">
+        <!-- Email Field -->
+        <div>
+          <%= f.label :email, class: "block text-sm font-medium", style: "color: hsl(var(--card-foreground));" %>
+          <%= f.email_field :email, autofocus: true, autocomplete: "email",
+              class: "mt-1 appearance-none relative block w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent sm:text-sm",
+              style: "background-color: hsl(var(--background)); border-color: hsl(var(--border)); color: hsl(var(--foreground));",
+              placeholder: "you@example.com" %>
+        </div>
+
+        <!-- Password Field -->
+        <div>
+          <%= f.label :password, class: "block text-sm font-medium", style: "color: hsl(var(--card-foreground));" do %>
+            Password
+            <% if @minimum_password_length %>
+              <span class="text-xs" style="color: hsl(var(--muted-foreground));">(<%= @minimum_password_length %> characters minimum)</span>
+            <% end %>
+          <% end %>
+          <%= f.password_field :password, autocomplete: "new-password",
+              class: "mt-1 appearance-none relative block w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent sm:text-sm",
+              style: "background-color: hsl(var(--background)); border-color: hsl(var(--border)); color: hsl(var(--foreground));",
+              placeholder: "••••••••" %>
+        </div>
+
+        <!-- Password Confirmation Field -->
+        <div>
+          <%= f.label :password_confirmation, class: "block text-sm font-medium", style: "color: hsl(var(--card-foreground));" %>
+          <%= f.password_field :password_confirmation, autocomplete: "new-password",
+              class: "mt-1 appearance-none relative block w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent sm:text-sm",
+              style: "background-color: hsl(var(--background)); border-color: hsl(var(--border)); color: hsl(var(--foreground));",
+              placeholder: "••••••••" %>
+        </div>
+      </div>
+
+      <!-- Submit Button -->
+      <div>
+        <%= f.submit "Sign up",
+            class: "group relative w-full flex justify-center py-3 px-4 border text-sm font-semibold rounded-lg hover-elevate transition-all duration-200",
+            style: "background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: hsl(var(--primary));" %>
+      </div>
+    <% end %>
+
+    <!-- Links -->
+    <div class="text-center mt-4">
+      <%= render "devise/shared/links" %>
+    </div>
+  </div>
+</div>
