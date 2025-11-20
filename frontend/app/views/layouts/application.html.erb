@@ -13,6 +13,18 @@
   </head>
 
   <body class="bg-slate-900 text-slate-100 min-h-screen">
+    <% if notice %>
+      <div class="bg-sky-900/20 border border-sky-700 text-sky-300 px-4 py-3 rounded-lg mb-4 mx-4 mt-4">
+        <%= notice %>
+      </div>
+    <% end %>
+
+    <% if alert %>
+      <div class="bg-red-900/20 border border-red-700 text-red-300 px-4 py-3 rounded-lg mb-4 mx-4 mt-4">
+        <%= alert %>
+      </div>
+    <% end %>
+
     <main class="container mx-auto px-4 py-8">
       <%= yield %>
     </main>
