@@ -1,0 +1,9 @@
+{
+  "prompt": "A serene mountain landscape at sunset with a lake, highly detailed, 4k",
+  "negative_prompt": "blurry, low quality, distorted",
+  "num_inference_steps": 25,
+  "guidance_scale": 7.5,
+  "width": 512,
+  "height": 512,
+  "seed": 42
+}
