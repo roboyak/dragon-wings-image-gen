@@ -1,18 +1,57 @@
-<div class="flex items-center justify-center min-h-[70vh]">
-  <div class="text-center">
-    <h1 class="text-5xl font-bold mb-4">
-      🐉 Dragon Wings AI Image Generator
-    </h1>
-    <p class="text-xl text-slate-300 mb-8">
-      Create stunning AI-generated images with Stable Diffusion
-    </p>
-    <div class="flex gap-4 justify-center">
-      <button class="bg-sky-500 hover:bg-sky-600 text-white font-semibold px-6 py-3 rounded-lg transition">
-        Get Started
-      </button>
-      <button class="bg-slate-800 hover:bg-slate-700 text-white font-semibold px-6 py-3 rounded-lg border border-slate-700 transition">
-        Learn More
-      </button>
+<% if user_signed_in? %>
+  <!-- Dashboard for logged-in users -->
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-8 flex justify-between items-center">
+      <div>
+        <h1 class="text-4xl font-bold mb-2">Welcome back, <%= current_user.email %>!</h1>
+        <p class="text-slate-400">Ready to create amazing images with AI?</p>
+      </div>
+      <%= link_to "Sign Out", destroy_user_session_path, data: { turbo_method: :delete }, class: "bg-red-500 hover:bg-red-600 text-white font-semibold px-6 py-3 rounded-lg transition" %>
+    </div>
+
+    <!-- User Stats Card -->
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-6 mb-8">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div>
+          <p class="text-sm text-slate-400">Subscription Tier</p>
+          <p class="text-2xl font-bold text-sky-500"><%= current_user.tier_display_name %></p>
+        </div>
+        <div>
+          <p class="text-sm text-slate-400">Daily Quota</p>
+          <p class="text-2xl font-bold"><%= current_user.generations_today %> / <%= current_user.generation_quota %></p>
+        </div>
+        <div>
+          <p class="text-sm text-slate-400">Remaining</p>
+          <p class="text-2xl font-bold text-green-500"><%= current_user.generation_quota - current_user.generations_today %></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Placeholder Section -->
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-8 text-center">
+      <h2 class="text-3xl font-bold mb-4">🎨 Image Generation Coming Soon!</h2>
+      <p class="text-slate-400 text-lg mb-6">
+        Phase 2.3 will add the image generation UI and connect to the Stable Diffusion backend.
+      </p>
+      <p class="text-slate-500 text-sm">
+        For now, you can sign out and test the authentication flow. Your subscription tier and quota tracking is fully functional!
+      </p>
     </div>
   </div>
-</div>
+<% else %>
+  <!-- Landing page for guests -->
+  <div class="flex items-center justify-center min-h-[70vh]">
+    <div class="text-center">
+      <h1 class="text-5xl font-bold mb-4">
+        🐉 Dragon Wings AI Image Generator
+      </h1>
+      <p class="text-xl text-slate-300 mb-8">
+        Create stunning AI-generated images with Stable Diffusion
+      </p>
+      <div class="flex gap-4 justify-center">
+        <%= link_to "Get Started", new_user_registration_path, class: "inline-block bg-sky-500 hover:bg-sky-600 text-white font-semibold px-6 py-3 rounded-lg transition" %>
+        <%= link_to "Sign In", new_user_session_path, class: "inline-block bg-slate-800 hover:bg-slate-700 text-white font-semibold px-6 py-3 rounded-lg border border-slate-700 transition" %>
+      </div>
+    </div>
+  </div>
+<% end %>
