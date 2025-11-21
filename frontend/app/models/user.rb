@@ -4,6 +4,9 @@ class User < ApplicationRecord
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable
 
+  # Associations
+  has_many :images, dependent: :destroy
+
   # Subscription tiers with generation quotas
   enum subscription_tier: {
     free: 0,

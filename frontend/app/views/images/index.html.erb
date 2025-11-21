@@ -1,0 +1,299 @@
+<div class="min-h-screen p-8" style="background-color: hsl(var(--background));">
+  <div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold mb-2" style="color: hsl(var(--foreground));">
+        AI Image Generation
+      </h1>
+      <p class="text-sm" style="color: hsl(var(--muted-foreground));">
+        Create stunning images with Stable Diffusion AI
+      </p>
+    </div>
+
+    <!-- User Stats Card -->
+    <div class="mb-8 p-6 rounded-lg border" style="background-color: hsl(var(--card)); border-color: hsl(var(--border));">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm" style="color: hsl(var(--muted-foreground));">Generation Quota</p>
+          <p class="text-2xl font-bold" style="color: hsl(var(--foreground));">
+            <%= current_user.generations_today %> / <%= current_user.generation_quota %>
+          </p>
+        </div>
+        <div class="text-right">
+          <p class="text-sm" style="color: hsl(var(--muted-foreground));">Subscription Tier</p>
+          <p class="text-lg font-semibold capitalize" style="color: hsl(var(--primary));">
+            <%= current_user.subscription_tier %>
+          </p>
+        </div>
+      </div>
+      <% if current_user.generations_today >= current_user.generation_quota %>
+        <div class="mt-4 p-4 rounded-lg" style="background-color: hsl(var(--destructive) / 0.1); border: 1px solid hsl(var(--destructive));">
+          <p class="text-sm font-semibold" style="color: hsl(var(--destructive));">
+            Daily quota exceeded. Upgrade your plan for more generations!
+          </p>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- Left Column: Generation Form -->
+      <div class="space-y-6">
+        <div class="p-6 rounded-lg border" style="background-color: hsl(var(--card)); border-color: hsl(var(--border));">
+          <h2 class="text-xl font-bold mb-6" style="color: hsl(var(--foreground));">
+            Create New Image
+          </h2>
+
+          <%= form_with model: Image.new, url: images_path, method: :post, class: "space-y-4" do |f| %>
+            <!-- Prompt -->
+            <div>
+              <label class="block text-sm font-medium mb-2" style="color: hsl(var(--foreground));">
+                Prompt *
+              </label>
+              <%= f.text_area :prompt,
+                  rows: 4,
+                  placeholder: "A majestic dragon soaring through storm clouds, digital art, fantasy illustration, detailed, vibrant colors",
+                  required: true,
+                  class: "w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2",
+                  style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground)); resize: vertical;" %>
+            </div>
+
+            <!-- Negative Prompt -->
+            <div>
+              <label class="block text-sm font-medium mb-2" style="color: hsl(var(--foreground));">
+                Negative Prompt (Optional)
+              </label>
+              <%= f.text_area :negative_prompt,
+                  rows: 2,
+                  placeholder: "blurry, low quality, distorted, watermark",
+                  class: "w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2",
+                  style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground)); resize: vertical;" %>
+            </div>
+
+            <!-- Advanced Settings (Collapsible) -->
+            <details class="group">
+              <summary class="cursor-pointer text-sm font-medium list-none flex items-center justify-between py-2" style="color: hsl(var(--primary));">
+                <span>Advanced Settings</span>
+                <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </summary>
+
+              <div class="mt-4 space-y-4 pl-4 border-l-2" style="border-color: hsl(var(--border));">
+                <!-- Inference Steps -->
+                <div>
+                  <label class="block text-sm font-medium mb-2" style="color: hsl(var(--foreground));">
+                    Inference Steps (20-50)
+                  </label>
+                  <%= f.number_field :num_inference_steps,
+                      value: 30,
+                      min: 20,
+                      max: 50,
+                      step: 1,
+                      class: "w-full px-4 py-2 rounded-lg border",
+                      style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground));" %>
+                  <p class="text-xs mt-1" style="color: hsl(var(--muted-foreground));">More steps = better quality, slower generation</p>
+                </div>
+
+                <!-- Guidance Scale -->
+                <div>
+                  <label class="block text-sm font-medium mb-2" style="color: hsl(var(--foreground));">
+                    Guidance Scale (1-20)
+                  </label>
+                  <%= f.number_field :guidance_scale,
+                      value: 7.5,
+                      min: 1,
+                      max: 20,
+                      step: 0.5,
+                      class: "w-full px-4 py-2 rounded-lg border",
+                      style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground));" %>
+                  <p class="text-xs mt-1" style="color: hsl(var(--muted-foreground));">Higher values = follows prompt more strictly</p>
+                </div>
+
+                <!-- Dimensions -->
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium mb-2" style="color: hsl(var(--foreground));">Width</label>
+                    <%= f.select :width,
+                        [[512, 512], [768, 768], [1024, 1024]],
+                        {},
+                        class: "w-full px-4 py-2 rounded-lg border",
+                        style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground));" %>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium mb-2" style="color: hsl(var(--foreground));">Height</label>
+                    <%= f.select :height,
+                        [[512, 512], [768, 768], [1024, 1024]],
+                        {},
+                        class: "w-full px-4 py-2 rounded-lg border",
+                        style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground));" %>
+                  </div>
+                </div>
+
+                <!-- Seed -->
+                <div>
+                  <label class="block text-sm font-medium mb-2" style="color: hsl(var(--foreground));">
+                    Seed (Optional)
+                  </label>
+                  <%= f.number_field :seed,
+                      placeholder: "Random",
+                      class: "w-full px-4 py-2 rounded-lg border",
+                      style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground));" %>
+                  <p class="text-xs mt-1" style="color: hsl(var(--muted-foreground));">Use same seed for reproducible results</p>
+                </div>
+              </div>
+            </details>
+
+            <!-- Submit Button -->
+            <%= f.submit "Generate Image",
+                disabled: !current_user.can_generate?,
+                class: "w-full px-6 py-3 rounded-lg font-semibold transition-colors #{current_user.can_generate? ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}",
+                style: "background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));" %>
+          <% end %>
+        </div>
+      </div>
+
+      <!-- Right Column: Image Gallery -->
+      <div class="space-y-6">
+        <div class="p-6 rounded-lg border" style="background-color: hsl(var(--card)); border-color: hsl(var(--border));">
+          <h2 class="text-xl font-bold mb-6" style="color: hsl(var(--foreground));">
+            Your Images
+          </h2>
+
+          <% if @images.empty? %>
+            <div class="text-center py-12">
+              <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+              <p class="text-sm" style="color: hsl(var(--muted-foreground));">
+                No images generated yet. Start creating!
+              </p>
+            </div>
+          <% else %>
+            <div class="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+              <% @images.each do |image| %>
+                <div class="p-4 rounded-lg border transition-all hover:border-sky-500"
+                     style="background-color: hsl(var(--background)); border-color: hsl(var(--border));"
+                     data-image-id="<%= image.id %>"
+                     data-status="<%= image.status %>">
+
+                  <!-- Image Preview or Status -->
+                  <div class="mb-3">
+                    <% if image.completed? && image.image_url.present? %>
+                      <%= link_to image_path(image), target: "_blank" do %>
+                        <%= image_tag image.image_url,
+                            alt: image.prompt.truncate(50),
+                            class: "w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity" %>
+                      <% end %>
+                    <% elsif image.failed? %>
+                      <div class="w-full h-48 flex items-center justify-center rounded-lg" style="background-color: hsl(var(--destructive) / 0.1);">
+                        <div class="text-center">
+                          <svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--destructive));">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                          </svg>
+                          <p class="text-sm font-semibold" style="color: hsl(var(--destructive));">Generation Failed</p>
+                        </div>
+                      </div>
+                    <% else %>
+                      <!-- Processing State -->
+                      <div class="w-full h-48 flex items-center justify-center rounded-lg" style="background-color: hsl(var(--muted) / 0.2);">
+                        <div class="text-center">
+                          <div class="inline-block w-12 h-12 border-4 border-t-transparent rounded-full animate-spin mb-2" style="border-color: hsl(var(--primary)); border-top-color: transparent;"></div>
+                          <p class="text-sm font-semibold" style="color: hsl(var(--primary));">
+                            <%= image.status_display %>
+                          </p>
+                        </div>
+                      </div>
+                    <% end %>
+                  </div>
+
+                  <!-- Prompt -->
+                  <p class="text-sm mb-2 line-clamp-2" style="color: hsl(var(--foreground));">
+                    <%= image.prompt %>
+                  </p>
+
+                  <!-- Meta Info -->
+                  <div class="flex items-center justify-between text-xs" style="color: hsl(var(--muted-foreground));">
+                    <span><%= time_ago_in_words(image.created_at) %> ago</span>
+                    <span class="px-2 py-1 rounded capitalize <%= image.completed? ? 'bg-green-500/20 text-green-400' : image.failed? ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400' %>">
+                      <%= image.status_display %>
+                    </span>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Custom Scrollbar Styles -->
+<style>
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+    border-radius: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted));
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>
+
+<!-- Auto-polling for pending/processing images -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const pendingImages = document.querySelectorAll('[data-status="pending"], [data-status="processing"]');
+
+    if (pendingImages.length === 0) return;
+
+    // Poll every 3 seconds
+    const pollInterval = setInterval(function() {
+      pendingImages.forEach(function(imageCard) {
+        const imageId = imageCard.dataset.imageId;
+        const currentStatus = imageCard.dataset.status;
+
+        // Skip if already completed or failed
+        if (currentStatus === 'completed' || currentStatus === 'failed') {
+          return;
+        }
+
+        // Fetch status from API
+        fetch(`/images/${imageId}/status`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.generation_complete) {
+              // Reload page to show updated image
+              window.location.reload();
+            } else {
+              // Update status in data attribute
+              imageCard.dataset.status = data.status;
+            }
+          })
+          .catch(error => console.error('Status check failed:', error));
+      });
+
+      // Stop polling if all images are complete
+      const stillPending = document.querySelectorAll('[data-status="pending"], [data-status="processing"]');
+      if (stillPending.length === 0) {
+        clearInterval(pollInterval);
+      }
+    }, 3000); // 3 second interval
+  });
+</script>
