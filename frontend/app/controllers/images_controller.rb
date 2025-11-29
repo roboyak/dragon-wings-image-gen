@@ -13,17 +13,46 @@ class ImagesController < ApplicationController
   def create
     @image = current_user.images.new(image_params)
 
+    # Determine generation mode
+    generation_mode = params[:generation_mode] || 'text_to_image'
+    @image.generation_type = generation_mode
+
     begin
-      # Call Stable Diffusion API to start generation
-      Rails.logger.info "=== CALLING STABLE DIFFUSION API ==="
-      api_response = StableDiffusionService.generate(
-        prompt: @image.prompt,
-        negative_prompt: @image.negative_prompt,
-        num_inference_steps: @image.num_inference_steps || 30,
-        guidance_scale: @image.guidance_scale || 7.5,
-        width: @image.width || 512,
-        height: @image.height || 512
-      )
+      Rails.logger.info "=== CALLING STABLE DIFFUSION API (#{generation_mode}) ==="
+
+      if generation_mode == 'image_to_image'
+        # Image-to-image generation
+        unless params[:init_image].present?
+          raise StableDiffusionService::GenerationError, "Initial image is required for img2img generation"
+        end
+
+        # Store init image with ActiveStorage
+        @image.init_image.attach(params[:init_image])
+        @image.strength = params[:strength]&.to_f || 0.75
+
+        api_response = StableDiffusionService.generate_img2img(
+          init_image_file: params[:init_image],
+          prompt: @image.prompt,
+          model_key: @image.model_key || 'sd-v1-5',
+          negative_prompt: @image.negative_prompt,
+          strength: @image.strength,
+          num_inference_steps: @image.num_inference_steps || 50,
+          guidance_scale: @image.guidance_scale || 7.5,
+          seed: @image.seed
+        )
+      else
+        # Text-to-image generation (default)
+        api_response = StableDiffusionService.generate(
+          prompt: @image.prompt,
+          model_key: @image.model_key || 'sd-v1-5',
+          negative_prompt: @image.negative_prompt,
+          num_inference_steps: @image.num_inference_steps || 30,
+          guidance_scale: @image.guidance_scale || 7.5,
+          width: @image.width || 512,
+          height: @image.height || 512
+        )
+      end
+
       Rails.logger.info "=== API RESPONSE: #{api_response.inspect} ==="
 
       # Update image with job ID from API
@@ -78,12 +107,16 @@ class ImagesController < ApplicationController
         metadata: api_status.except('status', 'job_id', 'image_url')
       )
 
+      # Use the real progress_percent from the backend API
+      progress_percent = api_status['progress_percent']
+
       render json: {
         id: @image.id,
         status: @image.status,
         status_display: @image.status_display,
         image_url: @image.image_url,
         generation_complete: @image.generation_complete?,
+        progress_percent: progress_percent,
         created_at: @image.created_at,
         updated_at: @image.updated_at
       }
@@ -103,11 +136,14 @@ class ImagesController < ApplicationController
     params.require(:image).permit(
       :prompt,
       :negative_prompt,
+      :model_key,
       :num_inference_steps,
       :guidance_scale,
       :width,
       :height,
-      :seed
+      :seed,
+      :generation_type,
+      :strength
     )
   end
 

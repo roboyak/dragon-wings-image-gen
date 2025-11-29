@@ -5,13 +5,14 @@ import base64
 import logging
 from io import BytesIO
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from PIL import Image
+from fastapi import FastAPI, HTTPException, BackgroundTasks, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
-from .config import settings
+from .config import settings, MODEL_CONFIGS
 from .models import sd_model
 from .schemas import (
     GenerateRequest,
@@ -19,6 +20,7 @@ from .schemas import (
     StatusResponse,
     HealthResponse,
     ErrorResponse,
+    Img2ImgRequest,
 )
 
 # Configure logging
@@ -76,6 +78,7 @@ app.mount("/images", StaticFiles(directory=settings.output_dir), name="images")
 def generate_image_task(
     job_id: str,
     prompt: str,
+    model_key: str,
     negative_prompt: str | None,
     num_inference_steps: int,
     guidance_scale: float,
@@ -85,21 +88,31 @@ def generate_image_task(
 ):
     """Background task for image generation."""
     try:
-        logger.info(f"Starting generation for job {job_id}")
+        logger.info(f"Starting generation for job {job_id} with model {model_key}")
         jobs[job_id]["status"] = "processing"
+        jobs[job_id]["progress_percent"] = 0
 
         import time
         start_time = time.time()
 
+        # Convert model_key to model_id
+        model_id = settings.get_model_id_from_key(model_key)
+
+        # Progress callback to update job status
+        def update_progress(progress: float):
+            jobs[job_id]["progress_percent"] = round(progress, 1)
+
         # Generate image
         image = sd_model.generate_image(
             prompt=prompt,
+            model_id=model_id,
             negative_prompt=negative_prompt,
             num_inference_steps=num_inference_steps,
             guidance_scale=guidance_scale,
             width=width,
             height=height,
             seed=seed,
+            progress_callback=update_progress,
         )
 
         generation_time = time.time() - start_time
@@ -121,6 +134,7 @@ def generate_image_task(
             "image_base64": image_base64,
             "generation_time": round(generation_time, 2),
             "message": "Image generated successfully",
+            "progress_percent": 100,
         })
 
         logger.info(f"Job {job_id} completed in {generation_time:.2f}s")
@@ -130,6 +144,78 @@ def generate_image_task(
         jobs[job_id].update({
             "status": "failed",
             "message": f"Generation failed: {str(e)}",
+        })
+
+
+def generate_img2img_task(
+    job_id: str,
+    init_image: Image.Image,
+    prompt: str,
+    model_key: str,
+    strength: float,
+    negative_prompt: str | None,
+    num_inference_steps: int,
+    guidance_scale: float,
+    seed: int | None,
+):
+    """Background task for img2img generation."""
+    try:
+        logger.info(f"Starting img2img generation for job {job_id} with model {model_key}")
+        jobs[job_id]["status"] = "processing"
+        jobs[job_id]["progress_percent"] = 0
+
+        import time
+        start_time = time.time()
+
+        # Convert model_key to model_id
+        model_id = settings.get_model_id_from_key(model_key)
+
+        # Progress callback to update job status
+        def update_progress(progress: float):
+            jobs[job_id]["progress_percent"] = round(progress, 1)
+
+        # Generate image from image
+        image = sd_model.generate_image_from_image(
+            init_image=init_image,
+            prompt=prompt,
+            model_id=model_id,
+            strength=strength,
+            negative_prompt=negative_prompt,
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+            seed=seed,
+            progress_callback=update_progress,
+        )
+
+        generation_time = time.time() - start_time
+
+        # Save image to file
+        filename = f"{job_id}.png"
+        filepath = os.path.join(settings.output_dir, filename)
+        image.save(filepath)
+
+        # Convert to base64
+        buffered = BytesIO()
+        image.save(buffered, format="PNG")
+        image_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+        # Update job status
+        jobs[job_id].update({
+            "status": "completed",
+            "image_url": f"/images/{filename}",
+            "image_base64": image_base64,
+            "generation_time": round(generation_time, 2),
+            "message": "Img2img generated successfully",
+            "progress_percent": 100,
+        })
+
+        logger.info(f"Img2img job {job_id} completed in {generation_time:.2f}s")
+
+    except Exception as e:
+        logger.error(f"Img2img job {job_id} failed: {e}")
+        jobs[job_id].update({
+            "status": "failed",
+            "message": f"Img2img generation failed: {str(e)}",
         })
 
 
@@ -190,6 +276,7 @@ async def generate_image(
         generate_image_task,
         job_id=job_id,
         prompt=request.prompt,
+        model_key=request.model_key,
         negative_prompt=request.negative_prompt,
         num_inference_steps=request.num_inference_steps,
         guidance_scale=request.guidance_scale,
@@ -198,7 +285,98 @@ async def generate_image(
         seed=request.seed,
     )
 
-    logger.info(f"Job {job_id} queued: '{request.prompt[:50]}...'")
+    logger.info(f"Job {job_id} queued: '{request.prompt[:50]}...' (model: {request.model_key})")
+
+    return GenerateResponse(**jobs[job_id])
+
+
+@app.post("/api/generate_img2img", response_model=GenerateResponse, tags=["Generation"])
+async def generate_img2img(
+    init_image: UploadFile = File(...),
+    prompt: str = Form(...),
+    model_key: str = Form("sd-v1-5"),
+    negative_prompt: str = Form(""),
+    strength: float = Form(0.75),
+    num_inference_steps: int = Form(50),
+    guidance_scale: float = Form(7.5),
+    seed: int | None = Form(None),
+    background_tasks: BackgroundTasks = None,
+):
+    """
+    Generate an image from an initial image and text prompt (img2img).
+
+    The generation happens asynchronously in the background.
+    Use the returned job_id to check status via /api/status/{job_id}.
+
+    Args:
+        init_image: Initial image file (PNG, JPG, WebP)
+        prompt: Text description of desired transformation
+        negative_prompt: What to avoid in the image
+        strength: Transformation strength (0.0=keep original, 1.0=complete transform)
+        num_inference_steps: Number of denoising steps (10-100)
+        guidance_scale: How closely to follow prompt (1.0-20.0)
+        seed: Random seed for reproducibility
+    """
+    # Validate file type
+    allowed_types = ["image/png", "image/jpeg", "image/jpg", "image/webp"]
+    if init_image.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid image type. Allowed: {', '.join(allowed_types)}",
+        )
+
+    # Validate strength parameter
+    if not (0.0 <= strength <= 1.0):
+        raise HTTPException(
+            status_code=400,
+            detail="Strength must be between 0.0 and 1.0",
+        )
+
+    # Read and process uploaded image
+    try:
+        image_bytes = await init_image.read()
+        init_img = Image.open(BytesIO(image_bytes))
+
+        # Validate image size (max 10MB)
+        max_size_mb = 10
+        if len(image_bytes) > max_size_mb * 1024 * 1024:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Image too large. Max size: {max_size_mb}MB",
+            )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid image file: {str(e)}",
+        )
+
+    # Generate unique job ID
+    job_id = str(uuid.uuid4())
+
+    # Initialize job status
+    jobs[job_id] = {
+        "job_id": job_id,
+        "status": "pending",
+        "prompt": prompt,
+        "message": "Img2img job queued for processing",
+    }
+
+    # Queue background task
+    background_tasks.add_task(
+        generate_img2img_task,
+        job_id=job_id,
+        init_image=init_img,
+        prompt=prompt,
+        model_key=model_key,
+        strength=strength,
+        negative_prompt=negative_prompt if negative_prompt else None,
+        num_inference_steps=num_inference_steps,
+        guidance_scale=guidance_scale,
+        seed=seed,
+    )
+
+    logger.info(f"Img2img job {job_id} queued: '{prompt[:50]}...', model={model_key}, strength={strength}")
 
     return GenerateResponse(**jobs[job_id])
 
@@ -219,28 +397,31 @@ async def get_status(job_id: str):
         image_url=job.get("image_url"),
         message=job.get("message"),
         generation_time=job.get("generation_time"),
+        progress_percent=job.get("progress_percent"),
     )
 
 
 @app.get("/api/models", tags=["General"])
 async def list_models():
-    """List available models (placeholder for future multi-model support)."""
+    """List available Stable Diffusion models with detailed metadata."""
+    # Add model key to each config, filtering out GPU-only models when on CPU
+    has_gpu = settings.device in ["cuda", "mps"]
+    models_with_keys = {}
+    for key, config in MODEL_CONFIGS.items():
+        # Skip GPU-required models when running on CPU
+        if config.get("requires_gpu", False) and not has_gpu:
+            continue
+        models_with_keys[key] = {
+            "key": key,
+            **config
+        }
+
     return {
-        "current_model": settings.model_id,
-        "available_models": [
-            {
-                "id": "runwayml/stable-diffusion-v1-5",
-                "name": "Stable Diffusion 1.5",
-                "description": "Fast, balanced quality",
-                "size": "~4GB",
-            },
-            {
-                "id": "stabilityai/stable-diffusion-xl-base-1.0",
-                "name": "Stable Diffusion XL",
-                "description": "Higher quality, slower",
-                "size": "~7GB",
-            },
-        ],
+        "current_model_id": settings.model_id,
+        "default_model_key": "sd-v1-5",
+        "device": settings.device,
+        "has_gpu": has_gpu,
+        "models": models_with_keys,
     }
 
 

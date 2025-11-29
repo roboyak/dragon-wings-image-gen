@@ -1,0 +1,283 @@
+<div class="min-h-screen p-4" style="background-color: hsl(var(--background));">
+  <div class="max-w-4xl mx-auto">
+    <!-- Header - Compact -->
+    <div class="mb-4 flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold" style="color: hsl(var(--foreground));">AI Image Generation</h1>
+        <p class="text-xs" style="color: hsl(var(--muted-foreground));">Stable Diffusion</p>
+      </div>
+      <div class="text-right text-sm">
+        <p style="color: hsl(var(--muted-foreground));">
+          <span class="font-semibold" style="color: hsl(var(--foreground));"><%= current_user.generations_today %></span>/<%= current_user.generation_quota %> today
+        </p>
+        <p class="text-xs capitalize" style="color: hsl(var(--primary));"><%= current_user.subscription_tier %></p>
+      </div>
+    </div>
+
+    <!-- Generation Form - Compact Card -->
+    <div class="mb-4 p-4 rounded-lg border" style="background-color: hsl(var(--card)); border-color: hsl(var(--border));">
+      <%= form_with model: Image.new, url: images_path, method: :post, multipart: true, data: { turbo: false }, class: "space-y-3" do |f| %>
+
+        <!-- Mode + Model in one row -->
+        <div class="flex gap-3">
+          <!-- Mode Toggle - Compact Pills -->
+          <div class="flex gap-1 p-1 rounded-lg" style="background-color: hsl(var(--muted) / 0.3);">
+            <label class="relative cursor-pointer">
+              <input type="radio" name="generation_mode" value="text_to_image" checked class="peer sr-only" onchange="toggleImg2ImgSection()">
+              <div class="px-3 py-1.5 rounded text-xs font-medium transition-all peer-checked:bg-white peer-checked:shadow-sm"
+                   style="color: hsl(var(--muted-foreground)); peer-checked:color: hsl(var(--foreground));">
+                Text→Img
+              </div>
+            </label>
+            <label class="relative cursor-pointer">
+              <input type="radio" name="generation_mode" value="image_to_image" class="peer sr-only" onchange="toggleImg2ImgSection()">
+              <div class="px-3 py-1.5 rounded text-xs font-medium transition-all peer-checked:bg-white peer-checked:shadow-sm"
+                   style="color: hsl(var(--muted-foreground));">
+                Img→Img
+              </div>
+            </label>
+          </div>
+
+          <!-- Model Selector - Compact -->
+          <%= f.select :model_key,
+              [['SD v1.5', 'sd-v1-5'], ['SD v2.1', 'sd-v2-1'], ['SDXL', 'sdxl']],
+              { selected: 'sd-v1-5' },
+              class: "flex-1 px-3 py-1.5 rounded-lg border text-sm",
+              style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground));" %>
+        </div>
+
+        <!-- Image Upload (img2img only) - Compact -->
+        <div id="img2img-section" style="display: none;">
+          <div id="upload-area" class="relative border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer hover:border-sky-500"
+               style="border-color: hsl(var(--border)); background-color: hsl(var(--background));"
+               onclick="document.getElementById('init_image_input').click()">
+            <input type="file" id="init_image_input" name="init_image" accept="image/png,image/jpeg,image/jpg,image/webp" class="hidden" onchange="handleFileSelect(event)">
+            <div id="upload-prompt">
+              <svg class="w-8 h-8 mx-auto mb-1 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+              </svg>
+              <p class="text-xs font-medium" style="color: hsl(var(--foreground));">Upload image</p>
+            </div>
+            <div id="image-preview" style="display: none;">
+              <img id="preview-img" class="max-h-32 mx-auto rounded mb-2" alt="Preview">
+              <button type="button" onclick="clearImagePreview(event)" class="text-xs px-2 py-1 rounded" style="background-color: hsl(var(--destructive)); color: white;">Remove</button>
+            </div>
+          </div>
+          <!-- Strength Slider - Inline -->
+          <div class="mt-2 flex items-center gap-2">
+            <span class="text-xs" style="color: hsl(var(--muted-foreground));">Strength:</span>
+            <input type="range" id="strength-slider" name="strength" min="0" max="1" step="0.05" value="0.3"
+                   class="flex-1 h-1 rounded-lg appearance-none cursor-pointer"
+                   style="background: hsl(var(--border));"
+                   oninput="document.getElementById('strength-value').textContent = this.value">
+            <span id="strength-value" class="text-xs font-mono w-8" style="color: hsl(var(--foreground));">0.3</span>
+          </div>
+        </div>
+
+        <!-- Prompt - Compact -->
+        <%= f.text_area :prompt,
+            rows: 2,
+            placeholder: "A majestic dragon soaring through clouds...",
+            required: true,
+            class: "w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-1",
+            style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground)); resize: none;" %>
+
+        <!-- Controls Row - Compact -->
+        <div class="flex items-center gap-2">
+          <!-- Negative Prompt Toggle -->
+          <details class="flex-1">
+            <summary class="cursor-pointer text-xs px-2 py-1 rounded" style="color: hsl(var(--muted-foreground)); background-color: hsl(var(--muted) / 0.2);">+ Negative</summary>
+            <%= f.text_area :negative_prompt,
+                rows: 1,
+                placeholder: "blurry, low quality",
+                class: "w-full mt-1 px-2 py-1 rounded border text-xs",
+                style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground)); resize: none;" %>
+          </details>
+
+          <!-- Advanced Settings Toggle -->
+          <details>
+            <summary class="cursor-pointer text-xs px-2 py-1 rounded whitespace-nowrap" style="color: hsl(var(--muted-foreground)); background-color: hsl(var(--muted) / 0.2);">+ Advanced</summary>
+            <div class="absolute right-0 mt-1 p-3 rounded-lg border shadow-lg z-10 space-y-2" style="background-color: hsl(var(--card)); border-color: hsl(var(--border)); min-width: 200px;">
+              <div>
+                <label class="block text-xs mb-1" style="color: hsl(var(--muted-foreground));">Steps</label>
+                <%= f.number_field :num_inference_steps, value: 30, min: 20, max: 50, class: "w-full px-2 py-1 rounded border text-sm", style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground));" %>
+              </div>
+              <div>
+                <label class="block text-xs mb-1" style="color: hsl(var(--muted-foreground));">Guidance</label>
+                <%= f.number_field :guidance_scale, value: 7.5, min: 1, max: 20, step: 0.5, class: "w-full px-2 py-1 rounded border text-sm", style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground));" %>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-xs mb-1" style="color: hsl(var(--muted-foreground));">W</label>
+                  <%= f.select :width, [[512,512],[768,768],[1024,1024]], {}, class: "w-full px-2 py-1 rounded border text-sm", style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground));" %>
+                </div>
+                <div>
+                  <label class="block text-xs mb-1" style="color: hsl(var(--muted-foreground));">H</label>
+                  <%= f.select :height, [[512,512],[768,768],[1024,1024]], {}, class: "w-full px-2 py-1 rounded border text-sm", style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground));" %>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <!-- Generate Button - Compact -->
+          <%= f.submit "Generate",
+              disabled: !current_user.can_generate?,
+              class: "px-6 py-2 rounded-lg text-sm font-semibold #{current_user.can_generate? ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}",
+              style: "background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));" %>
+        </div>
+
+      <% end %>
+    </div>
+
+    <!-- Image Grid - Compact Masonry -->
+    <div class="grid grid-cols-3 gap-2">
+      <% if @images.empty? %>
+        <div class="col-span-3 text-center py-8">
+          <p class="text-sm" style="color: hsl(var(--muted-foreground));">No images yet. Start creating!</p>
+        </div>
+      <% else %>
+        <% @images.each do |image| %>
+          <div class="relative group rounded-lg overflow-hidden border transition-all hover:border-sky-500"
+               style="background-color: hsl(var(--background)); border-color: hsl(var(--border)); aspect-ratio: 1;"
+               data-image-id="<%= image.id %>"
+               data-status="<%= image.status %>">
+
+            <% if image.completed? && image.image_url.present? %>
+              <%= link_to image_path(image), target: "_blank", class: "block h-full" do %>
+                <%= image_tag image.image_url, alt: image.prompt.truncate(30), class: "w-full h-full object-cover" %>
+              <% end %>
+
+              <!-- Hover Overlay -->
+              <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col justify-end">
+                <p class="text-xs line-clamp-2 text-white"><%= image.prompt %></p>
+                <p class="text-xs text-gray-400 mt-1"><%= time_ago_in_words(image.created_at) %> ago</p>
+              </div>
+
+            <% elsif image.failed? %>
+              <div class="w-full h-full flex items-center justify-center" style="background-color: hsl(var(--destructive) / 0.1);">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--destructive));">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+
+            <% else %>
+              <div class="w-full h-full flex items-center justify-center" style="background-color: hsl(var(--muted) / 0.2);">
+                <div class="text-center">
+                  <div class="inline-block w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style="border-color: hsl(var(--primary)); border-top-color: transparent;"></div>
+                  <p class="text-xs mt-2" style="color: hsl(var(--primary));"><%= image.status_display %></p>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Compact range slider */
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: hsl(var(--primary));
+    cursor: pointer;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: hsl(var(--primary));
+    cursor: pointer;
+    border: none;
+  }
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>
+
+<script>
+  function toggleImg2ImgSection() {
+    const mode = document.querySelector('input[name="generation_mode"]:checked').value;
+    const img2imgSection = document.getElementById('img2img-section');
+    const initImageInput = document.getElementById('init_image_input');
+    if (mode === 'image_to_image') {
+      img2imgSection.style.display = 'block';
+      initImageInput.required = true;
+    } else {
+      img2imgSection.style.display = 'none';
+      initImageInput.required = false;
+      clearImagePreview();
+    }
+  }
+
+  function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      alert('Please upload a valid image file');
+      return;
+    }
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert('File size must be less than 10MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      document.getElementById('preview-img').src = e.target.result;
+      document.getElementById('upload-prompt').style.display = 'none';
+      document.getElementById('image-preview').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearImagePreview(event) {
+    if (event) event.stopPropagation();
+    document.getElementById('init_image_input').value = '';
+    document.getElementById('preview-img').src = '';
+    document.getElementById('upload-prompt').style.display = 'block';
+    document.getElementById('image-preview').style.display = 'none';
+  }
+
+  const uploadArea = document.getElementById('upload-area');
+  if (uploadArea) {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      uploadArea.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
+    });
+    uploadArea.addEventListener('drop', (e) => {
+      const files = e.dataTransfer.files;
+      document.getElementById('init_image_input').files = files;
+      handleFileSelect({ target: { files: files } });
+    }, false);
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const pendingImages = document.querySelectorAll('[data-status="pending"], [data-status="processing"]');
+    if (pendingImages.length === 0) return;
+    const pollInterval = setInterval(function() {
+      pendingImages.forEach(function(imageCard) {
+        const imageId = imageCard.dataset.imageId;
+        const currentStatus = imageCard.dataset.status;
+        if (currentStatus === 'completed' || currentStatus === 'failed') return;
+        fetch(`/images/${imageId}/status`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.generation_complete) {
+              window.location.reload();
+            } else {
+              imageCard.dataset.status = data.status;
+            }
+          });
+      });
+      const stillPending = document.querySelectorAll('[data-status="pending"], [data-status="processing"]');
+      if (stillPending.length === 0) clearInterval(pollInterval);
+    }, 3000);
+  });
+</script>
