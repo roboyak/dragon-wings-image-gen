@@ -6,6 +6,9 @@ Rails.application.routes.draw do
     member do
       get :status
     end
+    collection do
+      post :enhance_prompt
+    end
   end
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
