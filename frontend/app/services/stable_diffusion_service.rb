@@ -6,12 +6,13 @@ class StableDiffusionService
   class GenerationError < ServiceError; end
   class StatusCheckError < ServiceError; end
 
-  # Generate a new image
-  def self.generate(prompt:, negative_prompt: nil, num_inference_steps: 30, guidance_scale: 7.5, width: 512, height: 512)
+  # Generate a new image (text-to-image)
+  def self.generate(prompt:, model_key: 'sd-v1-5', negative_prompt: nil, num_inference_steps: 30, guidance_scale: 7.5, width: 512, height: 512)
     response = post(
       '/api/generate',
       body: {
         prompt: prompt,
+        model_key: model_key,
         negative_prompt: negative_prompt || "",
         num_inference_steps: num_inference_steps,
         guidance_scale: guidance_scale,
@@ -29,6 +30,65 @@ class StableDiffusionService
     end
   rescue HTTParty::Error, Timeout::Error => e
     raise GenerationError, "API request failed: #{e.message}"
+  end
+
+  # Generate image from image (image-to-image)
+  def self.generate_img2img(init_image_file:, prompt:, model_key: 'sd-v1-5', negative_prompt: nil, strength: 0.75, num_inference_steps: 50, guidance_scale: 7.5, seed: nil)
+    # Build multipart form data
+    # HTTParty requires multipart gem for file uploads
+    require 'net/http'
+    require 'uri'
+
+    uri = URI.parse("#{base_uri}/api/generate_img2img")
+
+    # Create multipart form data manually
+    boundary = "----WebKitFormBoundary#{SecureRandom.hex(16)}"
+    post_body = []
+
+    # Add file
+    post_body << "--#{boundary}\r\n"
+    post_body << "Content-Disposition: form-data; name=\"init_image\"; filename=\"#{init_image_file.original_filename}\"\r\n"
+    post_body << "Content-Type: #{init_image_file.content_type}\r\n\r\n"
+    post_body << init_image_file.read
+    post_body << "\r\n"
+
+    # Add form fields
+    form_data = {
+      'prompt' => prompt,
+      'model_key' => model_key,
+      'negative_prompt' => negative_prompt || "",
+      'strength' => strength.to_s,
+      'num_inference_steps' => num_inference_steps.to_s,
+      'guidance_scale' => guidance_scale.to_s
+    }
+    form_data['seed'] = seed.to_s if seed.present?
+
+    form_data.each do |key, value|
+      post_body << "--#{boundary}\r\n"
+      post_body << "Content-Disposition: form-data; name=\"#{key}\"\r\n\r\n"
+      post_body << value
+      post_body << "\r\n"
+    end
+
+    post_body << "--#{boundary}--\r\n"
+
+    # Make request
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.read_timeout = 10
+
+    request = Net::HTTP::Post.new(uri.request_uri)
+    request.body = post_body.join
+    request['Content-Type'] = "multipart/form-data; boundary=#{boundary}"
+
+    response = http.request(request)
+
+    if response.code.to_i == 200
+      JSON.parse(response.body)
+    else
+      raise GenerationError, "Failed to start img2img generation: #{response.code} - #{response.message}"
+    end
+  rescue StandardError => e
+    raise GenerationError, "Img2img API request failed: #{e.message}"
   end
 
   # Check status of a generation job

@@ -1,0 +1,201 @@
+<%# Enhanced Midjourney-style Image Card %>
+<%# Usage: render partial: 'images/card', locals: { image: @image } %>
+
+<div class="image-card card-stagger rounded-lg overflow-hidden cursor-pointer group relative"
+     data-image-id="<%= image.id %>"
+     data-status="<%= image.status %>"
+     onclick="<%= image.completed? ? "window.open('#{image_path(image)}', '_blank')" : '' %>"
+     style="background-color: hsl(var(--card)); border-radius: 8px;">
+
+  <%# Completed Image %>
+  <% if image.completed? && image.image_url.present? %>
+    <div class="relative overflow-hidden" style="aspect-ratio: 1 / 1;">
+      <%= image_tag image.image_url,
+          alt: image.prompt.truncate(50),
+          class: "w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 image-fade-in",
+          loading: "lazy",
+          onload: "this.classList.add('loaded')" %>
+
+      <%# Hover Overlay with Gradient %>
+      <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-200 flex flex-col justify-end p-3">
+        <%# Prompt Text %>
+        <p class="text-xs text-white/90 line-clamp-2 mb-2 font-medium"><%= image.prompt.truncate(80) %></p>
+
+        <%# Action Buttons %>
+        <div class="flex items-center gap-2">
+          <button onclick="event.stopPropagation(); window.open('<%= image_path(image) %>', '_blank')"
+                  class="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors"
+                  style="background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));"
+                  title="View Details"
+                  aria-label="View image details">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            </svg>
+            View
+          </button>
+          <button onclick="event.stopPropagation(); downloadImage('<%= image.image_url %>', 'dragon-wings-<%= image.id %>.png')"
+                  class="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors hover:bg-white/20"
+                  style="background-color: hsl(var(--muted)); color: hsl(var(--foreground));"
+                  title="Download"
+                  aria-label="Download image">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+          </button>
+          <button onclick="event.stopPropagation(); remixImage(<%= image.id %>)"
+                  class="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors hover:bg-white/20"
+                  style="background-color: hsl(var(--muted)); color: hsl(var(--foreground));"
+                  title="Remix"
+                  aria-label="Remix image with same prompt">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  <%# Failed State %>
+  <% elsif image.failed? %>
+    <div class="relative overflow-hidden" style="aspect-ratio: 1 / 1; background-color: hsl(0 30% 12%);">
+      <div class="absolute inset-0 flex flex-col items-center justify-center p-3">
+        <%# Failed Badge %>
+        <div class="w-10 h-10 rounded-full mb-2 flex items-center justify-center" style="background-color: hsl(var(--destructive) / 0.2);">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--destructive));">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <p class="text-xs font-medium mb-2" style="color: hsl(var(--destructive));">Generation Failed</p>
+
+        <%# Retry Button %>
+        <button onclick="event.stopPropagation(); retryGeneration(<%= image.id %>)"
+                class="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-all hover:scale-105"
+                style="background-color: hsl(var(--destructive)); color: white;"
+                aria-label="Retry failed generation">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+          Retry
+        </button>
+      </div>
+
+      <%# Status Badge (top-right) %>
+      <div class="absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1"
+           style="background-color: hsl(var(--destructive)); color: white;">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+        Failed
+      </div>
+    </div>
+
+  <%# Processing/Generating State %>
+  <% elsif image.status == 'processing' %>
+    <% progress = image.respond_to?(:progress_percent) ? image.progress_percent : nil %>
+    <% has_progress = progress.present? && progress.is_a?(Numeric) %>
+    <div class="relative overflow-hidden generation-card" data-progress="<%= has_progress ? progress : 'indeterminate' %>" style="aspect-ratio: 1 / 1;">
+      <%# Animated Background with gradient sweep %>
+      <div class="absolute inset-0" style="background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(220 15% 15%) 100%);">
+        <div class="absolute inset-0 opacity-40 generation-shimmer"></div>
+      </div>
+
+      <%# Optional blurred preview (if available) %>
+      <% if image.respond_to?(:preview_url) && image.preview_url.present? %>
+        <div class="absolute inset-0">
+          <%= image_tag image.preview_url,
+              class: "w-full h-full object-cover opacity-50",
+              style: "filter: blur(20px); transform: scale(1.1);" %>
+        </div>
+      <% end %>
+
+      <%# Center Content with Progress %>
+      <div class="absolute inset-0 flex flex-col items-center justify-center p-4">
+        <%# Spinner or Progress Ring %>
+        <div class="relative w-16 h-16 mb-3">
+          <% if has_progress %>
+            <%# Progress Ring %>
+            <svg class="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
+              <%# Background circle %>
+              <circle cx="32" cy="32" r="28" fill="none" stroke="hsl(var(--muted))" stroke-width="4" opacity="0.3"/>
+              <%# Progress circle %>
+              <circle cx="32" cy="32" r="28" fill="none" stroke="hsl(var(--primary))" stroke-width="4"
+                      stroke-linecap="round"
+                      stroke-dasharray="<%= 175.9 %>"
+                      stroke-dashoffset="<%= 175.9 * (1 - progress / 100.0) %>"
+                      class="transition-all duration-500"/>
+            </svg>
+            <%# Percentage in center %>
+            <div class="absolute inset-0 flex items-center justify-center">
+              <span class="text-sm font-bold" style="color: hsl(var(--primary));"><%= progress.to_i %>%</span>
+            </div>
+          <% else %>
+            <%# Indeterminate spinner %>
+            <div class="w-16 h-16 border-3 border-t-transparent rounded-full animate-spin"
+                 style="border-color: hsl(var(--primary)); border-top-color: transparent; border-width: 3px;"></div>
+          <% end %>
+        </div>
+
+        <%# Progress Bar %>
+        <div class="w-full max-w-[140px] mb-2">
+          <div class="h-1 rounded-full overflow-hidden" style="background-color: hsl(var(--muted) / 0.5);">
+            <% if has_progress %>
+              <div class="h-full rounded-full transition-all duration-500"
+                   style="width: <%= progress %>%; background-color: hsl(var(--primary));"></div>
+            <% else %>
+              <div class="h-full rounded-full progress-indeterminate"
+                   style="width: 40%; background-color: hsl(var(--primary));"></div>
+            <% end %>
+          </div>
+        </div>
+
+        <%# Status Text %>
+        <span class="text-xs font-semibold mb-1" style="color: hsl(var(--primary));">
+          <% if has_progress %>
+            <%= progress.to_i %>% Complete
+          <% else %>
+            Generating...
+          <% end %>
+        </span>
+
+        <%# Prompt Preview %>
+        <p class="text-xs px-3 text-center line-clamp-2 opacity-70" style="color: hsl(var(--muted-foreground));">
+          <%= image.prompt.truncate(60) %>
+        </p>
+      </div>
+
+      <%# Generating Badge (top-right) with pulse %>
+      <div class="absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1.5"
+           style="background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));">
+        <span class="w-1.5 h-1.5 rounded-full bg-white/80 animate-ping"></span>
+        <span class="relative">Generating</span>
+      </div>
+    </div>
+
+  <%# Queued/Pending State %>
+  <% else %>
+    <div class="relative overflow-hidden" style="aspect-ratio: 1 / 1; background-color: hsl(var(--muted));">
+      <%# Center Content %>
+      <div class="absolute inset-0 flex flex-col items-center justify-center">
+        <div class="w-10 h-10 rounded-full mb-2 flex items-center justify-center" style="background-color: hsl(var(--warning) / 0.2);">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--warning));">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <span class="text-xs font-medium" style="color: hsl(var(--warning));">Queued</span>
+        <p class="text-xs mt-1 px-3 text-center line-clamp-1" style="color: hsl(var(--muted-foreground));">
+          <%= image.prompt.truncate(40) %>
+        </p>
+      </div>
+
+      <%# Queued Badge (top-right) %>
+      <div class="absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1"
+           style="background-color: hsl(var(--warning)); color: hsl(0 0% 10%);">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        Queued
+      </div>
+    </div>
+  <% end %>
+</div>

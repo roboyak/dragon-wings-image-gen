@@ -1,6 +1,48 @@
 """Configuration management for the backend."""
 from pydantic_settings import BaseSettings
-from typing import List
+from typing import List, Dict, Any
+
+
+# Available Stable Diffusion models
+MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
+    "sd-v1-5": {
+        "model_id": "runwayml/stable-diffusion-v1-5",
+        "name": "Stable Diffusion v1.5",
+        "description": "Fast, lightweight, general-purpose model",
+        "native_resolution": 512,
+        "recommended_for": "General use, fast generation, limited hardware",
+        "strengths": ["Speed", "Low memory usage", "General objects"],
+        "weaknesses": ["Limited artistic styles", "Lower quality details"],
+        "ram_required_gb": 4,
+        "txt2img": True,
+        "img2img": True,
+    },
+    "openjourney": {
+        "model_id": "prompthero/openjourney",
+        "name": "OpenJourney",
+        "description": "Midjourney-style artistic images",
+        "native_resolution": 512,
+        "recommended_for": "Artistic, stylized images with Midjourney aesthetic",
+        "strengths": ["Artistic style", "Beautiful renders", "No license required"],
+        "weaknesses": ["Less photorealistic", "Specific style"],
+        "ram_required_gb": 4,
+        "txt2img": True,
+        "img2img": True,
+    },
+    "sdxl": {
+        "model_id": "stabilityai/stable-diffusion-xl-base-1.0",
+        "name": "Stable Diffusion XL",
+        "description": "Highest quality, excellent artistic style transfer (GPU required)",
+        "native_resolution": 1024,
+        "recommended_for": "Professional quality, artistic transformations, style transfer",
+        "strengths": ["Exceptional quality", "Artistic styles", "1024x1024 resolution", "Detail preservation"],
+        "weaknesses": ["Slow generation", "High memory usage", "Requires GPU"],
+        "ram_required_gb": 12,
+        "txt2img": True,
+        "img2img": True,
+        "requires_gpu": True,
+    },
+}
 
 
 class Settings(BaseSettings):
@@ -38,6 +80,17 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> List[str]:
         """Parse CORS origins from comma-separated string."""
         return [origin.strip() for origin in self.cors_origins.split(",")]
+
+    def get_model_config(self, model_key: str) -> Dict[str, Any]:
+        """Get model configuration by key."""
+        if model_key not in MODEL_CONFIGS:
+            raise ValueError(f"Unknown model key: {model_key}. Available: {', '.join(MODEL_CONFIGS.keys())}")
+        return MODEL_CONFIGS[model_key]
+
+    def get_model_id_from_key(self, model_key: str) -> str:
+        """Get Hugging Face model ID from model key."""
+        config = self.get_model_config(model_key)
+        return config["model_id"]
 
     class Config:
         env_file = ".env"

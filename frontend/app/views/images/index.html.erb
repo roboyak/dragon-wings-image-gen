@@ -1,225 +1,494 @@
-<div class="min-h-screen p-8" style="background-color: hsl(var(--background));">
-  <div class="max-w-7xl mx-auto">
-    <!-- Header -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold mb-2" style="color: hsl(var(--foreground));">
-        AI Image Generation
-      </h1>
-      <p class="text-sm" style="color: hsl(var(--muted-foreground));">
-        Create stunning images with Stable Diffusion AI
-      </p>
-    </div>
+<%# Prompt bar now rendered in layout via shared/_prompt_bar.html.erb %>
 
-    <!-- User Stats Card -->
-    <div class="mb-8 p-6 rounded-lg border" style="background-color: hsl(var(--card)); border-color: hsl(var(--border));">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm" style="color: hsl(var(--muted-foreground));">Generation Quota</p>
-          <p class="text-2xl font-bold" style="color: hsl(var(--foreground));">
-            <%= current_user.generations_today %> / <%= current_user.generation_quota %>
-          </p>
+<div class="flex-1 flex flex-col" style="background-color: hsl(var(--background));">
+  <!-- Main Content -->
+  <div class="flex-1 flex overflow-hidden">
+    <!-- Image Gallery -->
+    <div class="flex-1 overflow-y-auto p-4" id="gallery-area">
+      <% if @images.empty? %>
+        <div class="flex items-center justify-center h-full">
+          <div class="text-center max-w-xs">
+            <div class="w-14 h-14 rounded-full mx-auto mb-3 flex items-center justify-center" style="background-color: hsl(var(--muted));">
+              <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+            </div>
+            <h3 class="text-sm font-semibold mb-1" style="color: hsl(var(--foreground));">No images yet</h3>
+            <p class="text-xs mb-3" style="color: hsl(var(--muted-foreground));">
+              Enter a prompt above to create your first AI image
+            </p>
+            <div class="flex items-center justify-center gap-1 text-xs" style="color: hsl(var(--primary));">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+              Stable Diffusion
+            </div>
+          </div>
         </div>
-        <div class="text-right">
-          <p class="text-sm" style="color: hsl(var(--muted-foreground));">Subscription Tier</p>
-          <p class="text-lg font-semibold capitalize" style="color: hsl(var(--primary));">
-            <%= current_user.subscription_tier %>
-          </p>
-        </div>
-      </div>
-      <% if current_user.generations_today >= current_user.generation_quota %>
-        <div class="mt-4 p-4 rounded-lg" style="background-color: hsl(var(--destructive) / 0.1); border: 1px solid hsl(var(--destructive));">
-          <p class="text-sm font-semibold" style="color: hsl(var(--destructive));">
-            Daily quota exceeded. Upgrade your plan for more generations!
-          </p>
+      <% else %>
+        <%# Date-Grouped Gallery (Midjourney-style) %>
+        <div class="space-y-6">
+          <% group_images_by_date(@images).each do |date_label, images| %>
+            <div class="date-group">
+              <%# Sticky Date Header %>
+              <h3 class="date-header sticky top-0 z-10 py-2 px-1 -mx-1 text-sm font-semibold mb-3 flex items-center gap-2"
+                  style="color: hsl(var(--primary)); background-color: hsl(var(--background));">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="opacity: 0.7;">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                <%= date_label %>
+                <span class="text-xs font-normal" style="color: hsl(var(--muted-foreground));">
+                  (<%= images.size %> <%= 'image'.pluralize(images.size) %>)
+                </span>
+              </h3>
+
+              <%# Image Grid - Responsive Midjourney-style layout %>
+              <%# Mobile: 2 cols | Tablet (640+): 3 cols | Desktop (1024+): 4 cols | Large (1400+): 5 cols %>
+              <div class="image-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-2">
+                <% images.each do |image| %>
+                  <%= render partial: 'images/card', locals: { image: image } %>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
         </div>
       <% end %>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <!-- Left Column: Generation Form -->
-      <div class="space-y-6">
-        <div class="p-6 rounded-lg border" style="background-color: hsl(var(--card)); border-color: hsl(var(--border));">
-          <h2 class="text-xl font-bold mb-6" style="color: hsl(var(--foreground));">
-            Create New Image
-          </h2>
+    <!-- Enhanced Settings Panel -->
+    <aside id="settings-panel" class="w-72 border-l flex-shrink-0 overflow-y-auto hidden" style="background-color: hsl(var(--card)); border-color: hsl(var(--border));">
+      <div class="p-4">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color: hsl(var(--border));">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--primary));">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+            </svg>
+            <h3 class="text-sm font-semibold" style="color: hsl(var(--foreground));">Generation Settings</h3>
+          </div>
+          <button onclick="toggleSettings()" class="p-1.5 rounded-md transition-colors hover:bg-white/10" style="color: hsl(var(--muted-foreground));" aria-label="Close settings panel">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
 
-          <%= form_with model: Image.new, url: images_path, method: :post, class: "space-y-4" do |f| %>
-            <!-- Prompt -->
-            <div>
-              <label class="block text-sm font-medium mb-2" style="color: hsl(var(--foreground));">
-                Prompt *
-              </label>
-              <%= f.text_area :prompt,
-                  rows: 4,
-                  placeholder: "A majestic dragon soaring through storm clouds, digital art, fantasy illustration, detailed, vibrant colors",
-                  required: true,
-                  class: "w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2",
-                  style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground)); resize: vertical;" %>
+        <div class="space-y-5">
+          <!-- MODEL Section -->
+          <div class="settings-section">
+            <p class="text-[10px] font-semibold uppercase tracking-wider mb-2" style="color: hsl(var(--muted-foreground));">Model</p>
+            <div class="relative group">
+              <select id="model_select" onchange="updateModel(this.value)" class="settings-select w-full px-3 py-2 text-sm rounded-lg border appearance-none cursor-pointer transition-colors" style="background-color: hsl(var(--background)); border-color: hsl(var(--border)); color: hsl(var(--foreground));">
+                <option value="sd-v1-5">Stable Diffusion v1.5</option>
+                <option value="openjourney">OpenJourney (Midjourney-style)</option>
+                <option value="sdxl">SDXL 1.0</option>
+              </select>
+              <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </div>
+            <p id="model_description" class="text-[11px] mt-1.5" style="color: hsl(var(--muted-foreground));">Fast generation, good for quick iterations</p>
+          </div>
+
+          <!-- DIMENSIONS Section -->
+          <div class="settings-section">
+            <p class="text-[10px] font-semibold uppercase tracking-wider mb-2" style="color: hsl(var(--muted-foreground));">Dimensions</p>
+
+            <!-- Aspect Ratio Presets -->
+            <div class="flex flex-wrap gap-1.5 mb-3">
+              <button type="button" onclick="setAspectRatio('1:1', 512, 512)" class="aspect-btn px-2.5 py-1 text-xs rounded-md border transition-colors" data-ratio="1:1" style="border-color: hsl(var(--primary)); color: hsl(var(--primary)); background-color: hsl(var(--primary) / 0.1);">1:1</button>
+              <button type="button" onclick="setAspectRatio('16:9', 768, 432)" class="aspect-btn px-2.5 py-1 text-xs rounded-md border transition-colors" data-ratio="16:9" style="border-color: hsl(var(--border)); color: hsl(var(--muted-foreground));">16:9</button>
+              <button type="button" onclick="setAspectRatio('9:16', 432, 768)" class="aspect-btn px-2.5 py-1 text-xs rounded-md border transition-colors" data-ratio="9:16" style="border-color: hsl(var(--border)); color: hsl(var(--muted-foreground));">9:16</button>
+              <button type="button" onclick="setAspectRatio('4:3', 640, 480)" class="aspect-btn px-2.5 py-1 text-xs rounded-md border transition-colors" data-ratio="4:3" style="border-color: hsl(var(--border)); color: hsl(var(--muted-foreground));">4:3</button>
+              <button type="button" onclick="setAspectRatio('3:4', 480, 640)" class="aspect-btn px-2.5 py-1 text-xs rounded-md border transition-colors" data-ratio="3:4" style="border-color: hsl(var(--border)); color: hsl(var(--muted-foreground));">3:4</button>
             </div>
 
-            <!-- Negative Prompt -->
-            <div>
-              <label class="block text-sm font-medium mb-2" style="color: hsl(var(--foreground));">
-                Negative Prompt (Optional)
-              </label>
-              <%= f.text_area :negative_prompt,
-                  rows: 2,
-                  placeholder: "blurry, low quality, distorted, watermark",
-                  class: "w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2",
-                  style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground)); resize: vertical;" %>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="flex items-center gap-1 text-xs mb-1.5" style="color: hsl(var(--muted-foreground));">
+                  Width
+                  <span class="tooltip-trigger cursor-help" title="Image width in pixels">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M12 16v-4m0-4h.01"/></svg>
+                  </span>
+                </label>
+                <select id="width_select" onchange="updateDimension('width', this.value)" class="settings-select w-full px-3 py-2 text-sm rounded-lg border appearance-none" style="background-color: hsl(var(--background)); border-color: hsl(var(--border)); color: hsl(var(--foreground));">
+                  <option value="432">432</option>
+                  <option value="480">480</option>
+                  <option value="512" selected>512</option>
+                  <option value="640">640</option>
+                  <option value="768">768</option>
+                  <option value="1024">1024</option>
+                </select>
+              </div>
+              <div>
+                <label class="flex items-center gap-1 text-xs mb-1.5" style="color: hsl(var(--muted-foreground));">
+                  Height
+                  <span class="tooltip-trigger cursor-help" title="Image height in pixels">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M12 16v-4m0-4h.01"/></svg>
+                  </span>
+                </label>
+                <select id="height_select" onchange="updateDimension('height', this.value)" class="settings-select w-full px-3 py-2 text-sm rounded-lg border appearance-none" style="background-color: hsl(var(--background)); border-color: hsl(var(--border)); color: hsl(var(--foreground));">
+                  <option value="432">432</option>
+                  <option value="480">480</option>
+                  <option value="512" selected>512</option>
+                  <option value="640">640</option>
+                  <option value="768">768</option>
+                  <option value="1024">1024</option>
+                </select>
+              </div>
             </div>
+            <p id="dimensions_display" class="text-[11px] mt-1.5 text-center" style="color: hsl(var(--muted-foreground));">512 × 512 px</p>
+          </div>
 
-            <!-- Advanced Settings (Collapsible) -->
-            <details class="group">
-              <summary class="cursor-pointer text-sm font-medium list-none flex items-center justify-between py-2" style="color: hsl(var(--primary));">
-                <span>Advanced Settings</span>
-                <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
-              </summary>
+          <!-- QUALITY Section -->
+          <div class="settings-section">
+            <p class="text-[10px] font-semibold uppercase tracking-wider mb-2" style="color: hsl(var(--muted-foreground));">Quality</p>
 
-              <div class="mt-4 space-y-4 pl-4 border-l-2" style="border-color: hsl(var(--border));">
-                <!-- Inference Steps -->
-                <div>
-                  <label class="block text-sm font-medium mb-2" style="color: hsl(var(--foreground));">
-                    Inference Steps (20-50)
+            <div class="space-y-4">
+              <!-- Steps Slider -->
+              <div>
+                <div class="flex items-center justify-between mb-1.5">
+                  <label class="flex items-center gap-1 text-xs" style="color: hsl(var(--muted-foreground));">
+                    Steps
+                    <span class="tooltip-trigger cursor-help" title="More steps = higher quality but slower">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M12 16v-4m0-4h.01"/></svg>
+                    </span>
                   </label>
-                  <%= f.number_field :num_inference_steps,
-                      value: 30,
-                      min: 20,
-                      max: 50,
-                      step: 1,
-                      class: "w-full px-4 py-2 rounded-lg border",
-                      style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground));" %>
-                  <p class="text-xs mt-1" style="color: hsl(var(--muted-foreground));">More steps = better quality, slower generation</p>
+                  <span id="steps_display" class="text-sm font-mono font-medium" style="color: hsl(var(--primary));">30</span>
                 </div>
-
-                <!-- Guidance Scale -->
-                <div>
-                  <label class="block text-sm font-medium mb-2" style="color: hsl(var(--foreground));">
-                    Guidance Scale (1-20)
-                  </label>
-                  <%= f.number_field :guidance_scale,
-                      value: 7.5,
-                      min: 1,
-                      max: 20,
-                      step: 0.5,
-                      class: "w-full px-4 py-2 rounded-lg border",
-                      style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground));" %>
-                  <p class="text-xs mt-1" style="color: hsl(var(--muted-foreground));">Higher values = follows prompt more strictly</p>
-                </div>
-
-                <!-- Dimensions -->
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <label class="block text-sm font-medium mb-2" style="color: hsl(var(--foreground));">Width</label>
-                    <%= f.select :width,
-                        [[512, 512], [768, 768], [1024, 1024]],
-                        {},
-                        class: "w-full px-4 py-2 rounded-lg border",
-                        style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground));" %>
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium mb-2" style="color: hsl(var(--foreground));">Height</label>
-                    <%= f.select :height,
-                        [[512, 512], [768, 768], [1024, 1024]],
-                        {},
-                        class: "w-full px-4 py-2 rounded-lg border",
-                        style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground));" %>
-                  </div>
-                </div>
-
-                <!-- Seed -->
-                <div>
-                  <label class="block text-sm font-medium mb-2" style="color: hsl(var(--foreground));">
-                    Seed (Optional)
-                  </label>
-                  <%= f.number_field :seed,
-                      placeholder: "Random",
-                      class: "w-full px-4 py-2 rounded-lg border",
-                      style: "background-color: hsl(var(--input)); border-color: hsl(var(--border)); color: hsl(var(--foreground));" %>
-                  <p class="text-xs mt-1" style="color: hsl(var(--muted-foreground));">Use same seed for reproducible results</p>
+                <input type="range" id="steps_slider" min="20" max="50" value="30"
+                       oninput="updateSlider('steps', this.value)"
+                       class="settings-slider w-full h-2 rounded-full appearance-none cursor-pointer">
+                <div class="flex justify-between text-[10px] mt-1" style="color: hsl(var(--muted-foreground));">
+                  <span>Fast</span>
+                  <span>Quality</span>
                 </div>
               </div>
-            </details>
 
-            <!-- Submit Button -->
-            <%= f.submit "Generate Image",
-                disabled: !current_user.can_generate?,
-                class: "w-full px-6 py-3 rounded-lg font-semibold transition-colors #{current_user.can_generate? ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}",
-                style: "background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));" %>
-          <% end %>
+              <!-- Guidance Slider -->
+              <div>
+                <div class="flex items-center justify-between mb-1.5">
+                  <label class="flex items-center gap-1 text-xs" style="color: hsl(var(--muted-foreground));">
+                    Guidance
+                    <span class="tooltip-trigger cursor-help" title="How closely to follow the prompt (7-8 recommended)">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M12 16v-4m0-4h.01"/></svg>
+                    </span>
+                  </label>
+                  <span id="guidance_display" class="text-sm font-mono font-medium" style="color: hsl(var(--primary));">7.5</span>
+                </div>
+                <input type="range" id="guidance_slider" min="1" max="20" step="0.5" value="7.5"
+                       oninput="updateSlider('guidance', this.value)"
+                       class="settings-slider w-full h-2 rounded-full appearance-none cursor-pointer">
+                <div class="flex justify-between text-[10px] mt-1" style="color: hsl(var(--muted-foreground));">
+                  <span>Creative</span>
+                  <span>Precise</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ADVANCED Section (Collapsible) -->
+          <div class="settings-section">
+            <button type="button" onclick="toggleAdvanced()" class="flex items-center justify-between w-full text-[10px] font-semibold uppercase tracking-wider mb-2" style="color: hsl(var(--muted-foreground));">
+              <span>Advanced</span>
+              <svg id="advanced-chevron" class="w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+
+            <div id="advanced-settings" class="space-y-3 hidden">
+              <!-- Negative Prompt -->
+              <div>
+                <label class="flex items-center gap-1 text-xs mb-1.5" style="color: hsl(var(--muted-foreground));">
+                  Negative Prompt
+                  <span class="tooltip-trigger cursor-help" title="Things to avoid in the image">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M12 16v-4m0-4h.01"/></svg>
+                  </span>
+                </label>
+                <textarea id="negative_prompt_field"
+                          onchange="document.getElementById('negative_prompt_input').value = this.value"
+                          rows="2"
+                          placeholder="blurry, low quality, distorted..."
+                          class="w-full px-3 py-2 text-sm rounded-lg border resize-none transition-colors focus:outline-none"
+                          style="background-color: hsl(var(--background)); border-color: hsl(var(--border)); color: hsl(var(--foreground));"></textarea>
+              </div>
+
+              <!-- Seed -->
+              <div>
+                <label class="flex items-center gap-1 text-xs mb-1.5" style="color: hsl(var(--muted-foreground));">
+                  Seed
+                  <span class="tooltip-trigger cursor-help" title="Use same seed to reproduce exact results">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M12 16v-4m0-4h.01"/></svg>
+                  </span>
+                </label>
+                <div class="flex gap-2">
+                  <input type="number" id="seed_field"
+                         onchange="document.getElementById('seed_input').value = this.value"
+                         placeholder="Random"
+                         class="flex-1 px-3 py-2 text-sm rounded-lg border transition-colors focus:outline-none"
+                         style="background-color: hsl(var(--background)); border-color: hsl(var(--border)); color: hsl(var(--foreground));">
+                  <button type="button" onclick="randomizeSeed()" class="px-3 py-2 rounded-lg border transition-colors hover:bg-white/5" style="border-color: hsl(var(--border)); color: hsl(var(--muted-foreground));" title="Generate random seed" aria-label="Generate random seed">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+    </aside>
 
-      <!-- Right Column: Image Gallery -->
-      <div class="space-y-6">
-        <div class="p-6 rounded-lg border" style="background-color: hsl(var(--card)); border-color: hsl(var(--border));">
-          <h2 class="text-xl font-bold mb-6" style="color: hsl(var(--foreground));">
-            Your Images
-          </h2>
+    <!-- Enhanced Image-to-Image Panel -->
+    <aside id="img2img-panel" class="w-72 border-l flex-shrink-0 overflow-y-auto hidden" style="background-color: hsl(var(--card)); border-color: hsl(var(--border));">
+      <div class="p-4">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color: hsl(var(--border));">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--primary));">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+            <h3 class="text-sm font-semibold" style="color: hsl(var(--foreground));">Image to Image</h3>
+          </div>
+          <button onclick="toggleImg2ImgPanel()" class="p-1.5 rounded-md transition-colors hover:bg-white/10" style="color: hsl(var(--muted-foreground));" aria-label="Close image-to-image panel">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
 
-          <% if @images.empty? %>
-            <div class="text-center py-12">
-              <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-              </svg>
-              <p class="text-sm" style="color: hsl(var(--muted-foreground));">
-                No images generated yet. Start creating!
-              </p>
-            </div>
-          <% else %>
-            <div class="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-              <% @images.each do |image| %>
-                <div class="p-4 rounded-lg border transition-all hover:border-sky-500"
-                     style="background-color: hsl(var(--background)); border-color: hsl(var(--border));"
-                     data-image-id="<%= image.id %>"
-                     data-status="<%= image.status %>">
+        <div class="space-y-5">
+          <!-- SOURCE IMAGE Section -->
+          <div class="settings-section">
+            <p class="text-[10px] font-semibold uppercase tracking-wider mb-2" style="color: hsl(var(--muted-foreground));">Source Image</p>
 
-                  <!-- Image Preview or Status -->
-                  <div class="mb-3">
-                    <% if image.completed? && image.image_url.present? %>
-                      <%= link_to image_path(image), target: "_blank" do %>
-                        <%= image_tag image.image_url,
-                            alt: image.prompt.truncate(50),
-                            class: "w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity" %>
-                      <% end %>
-                    <% elsif image.failed? %>
-                      <div class="w-full h-48 flex items-center justify-center rounded-lg" style="background-color: hsl(var(--destructive) / 0.1);">
-                        <div class="text-center">
-                          <svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--destructive));">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                          </svg>
-                          <p class="text-sm font-semibold" style="color: hsl(var(--destructive));">Generation Failed</p>
-                        </div>
-                      </div>
-                    <% else %>
-                      <!-- Processing State -->
-                      <div class="w-full h-48 flex items-center justify-center rounded-lg" style="background-color: hsl(var(--muted) / 0.2);">
-                        <div class="text-center">
-                          <div class="inline-block w-12 h-12 border-4 border-t-transparent rounded-full animate-spin mb-2" style="border-color: hsl(var(--primary)); border-top-color: transparent;"></div>
-                          <p class="text-sm font-semibold" style="color: hsl(var(--primary));">
-                            <%= image.status_display %>
-                          </p>
-                        </div>
-                      </div>
-                    <% end %>
-                  </div>
+            <!-- Enhanced Upload Area -->
+            <div id="upload-area"
+                 class="upload-dropzone relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all"
+                 style="border-color: hsl(var(--border)); background-color: hsl(var(--background));"
+                 onclick="document.getElementById('init_image_input').click()">
+              <input type="file" id="init_image_input" name="init_image" form="generate-form"
+                     accept="image/png,image/jpeg,image/jpg,image/webp" class="hidden" onchange="handleFileSelect(event)">
 
-                  <!-- Prompt -->
-                  <p class="text-sm mb-2 line-clamp-2" style="color: hsl(var(--foreground));">
-                    <%= image.prompt %>
-                  </p>
+              <!-- Upload Prompt (shown when no image) -->
+              <div id="upload-prompt">
+                <div class="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center" style="background-color: hsl(var(--muted));">
+                  <svg class="w-6 h-6 upload-icon transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                  </svg>
+                </div>
+                <p class="text-sm font-medium mb-1" style="color: hsl(var(--foreground));">Drop image here</p>
+                <p class="text-xs mb-2" style="color: hsl(var(--muted-foreground));">or click to browse</p>
+                <p class="text-[10px]" style="color: hsl(var(--muted-foreground));">PNG, JPG, WebP • Max 10MB</p>
+              </div>
 
-                  <!-- Meta Info -->
-                  <div class="flex items-center justify-between text-xs" style="color: hsl(var(--muted-foreground));">
-                    <span><%= time_ago_in_words(image.created_at) %> ago</span>
-                    <span class="px-2 py-1 rounded capitalize <%= image.completed? ? 'bg-green-500/20 text-green-400' : image.failed? ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400' %>">
-                      <%= image.status_display %>
-                    </span>
+              <!-- Image Preview (shown when image selected) -->
+              <div id="image-preview" class="hidden">
+                <div class="relative group">
+                  <img id="preview-img" class="max-h-40 mx-auto rounded-lg shadow-lg cursor-zoom-in" alt="Preview" onclick="openImageZoom(event)">
+                  <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                    <button type="button" onclick="openImageZoom(event)" class="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors" title="Zoom" aria-label="Zoom image">
+                      <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path></svg>
+                    </button>
+                    <button type="button" onclick="clearImagePreview(event)" class="p-2 rounded-full bg-red-500/80 hover:bg-red-500 transition-colors" title="Remove" aria-label="Remove image">
+                      <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
                   </div>
                 </div>
+                <p id="preview-filename" class="text-[11px] mt-2 truncate" style="color: hsl(var(--muted-foreground));"></p>
+              </div>
+            </div>
+
+            <!-- Use Gallery Image Button -->
+            <button type="button" onclick="openGalleryModal()" class="w-full mt-3 px-3 py-2 text-xs font-medium rounded-lg border transition-colors hover:bg-white/5 flex items-center justify-center gap-2" style="border-color: hsl(var(--border)); color: hsl(var(--foreground));">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--primary));">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+              Use Gallery Image
+            </button>
+          </div>
+
+          <!-- TRANSFORMATION Section -->
+          <div class="settings-section">
+            <p class="text-[10px] font-semibold uppercase tracking-wider mb-2" style="color: hsl(var(--muted-foreground));">Transformation</p>
+
+            <!-- Strength Slider with Visual Indicators -->
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <label class="flex items-center gap-1 text-xs" style="color: hsl(var(--muted-foreground));">
+                  Strength
+                  <span class="tooltip-trigger cursor-help" title="How much to transform the source image">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M12 16v-4m0-4h.01"/></svg>
+                  </span>
+                </label>
+                <span id="strength_display" class="text-sm font-mono font-medium" style="color: hsl(var(--primary));">0.3</span>
+              </div>
+
+              <!-- Strength Slider -->
+              <input type="range" id="strength_slider" min="0" max="1" step="0.05" value="0.3"
+                     oninput="updateStrength(this.value)"
+                     class="strength-slider w-full h-2 rounded-full appearance-none cursor-pointer">
+
+              <!-- Visual Strength Markers -->
+              <div class="flex justify-between items-center mt-2">
+                <div class="flex items-center gap-1.5">
+                  <div class="w-6 h-6 rounded border flex items-center justify-center" style="border-color: hsl(var(--border)); background-color: hsl(var(--muted));">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                  </div>
+                  <span class="text-[10px]" style="color: hsl(var(--muted-foreground));">Subtle</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[10px]" style="color: hsl(var(--muted-foreground));">Major</span>
+                  <div class="w-6 h-6 rounded border flex items-center justify-center" style="border-color: hsl(var(--border)); background-color: hsl(var(--muted));">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Strength Description -->
+              <p id="strength_description" class="text-[11px] mt-2 text-center transition-colors" style="color: hsl(var(--muted-foreground));">
+                Low: Keep most of the original image
+              </p>
+            </div>
+          </div>
+
+          <!-- Quick Tips -->
+          <div class="rounded-lg p-3" style="background-color: hsl(var(--muted) / 0.3);">
+            <p class="text-[10px] font-semibold mb-1.5" style="color: hsl(var(--primary));">Tips</p>
+            <ul class="text-[10px] space-y-1" style="color: hsl(var(--muted-foreground));">
+              <li>• Use 0.2-0.4 for style transfer</li>
+              <li>• Use 0.5-0.7 for moderate changes</li>
+              <li>• Use 0.8-1.0 for major transformation</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Image Zoom Modal -->
+    <div id="image-zoom-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="background-color: rgba(0, 0, 0, 0.9);" onclick="closeImageZoom(event)">
+      <img id="zoom-img" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl" alt="Zoomed preview">
+      <button type="button" onclick="closeImageZoom(event)" class="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors" aria-label="Close zoom">
+        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcuts-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="background-color: rgba(0, 0, 0, 0.8);" onclick="closeShortcutsModal(event)">
+      <div class="w-full max-w-md rounded-xl overflow-hidden shadow-2xl" style="background-color: hsl(var(--card));" onclick="event.stopPropagation()">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between p-4 border-b" style="border-color: hsl(var(--border));">
+          <div class="flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--primary));">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+            </svg>
+            <h3 class="text-base font-semibold" style="color: hsl(var(--foreground));">Keyboard Shortcuts</h3>
+          </div>
+          <button type="button" onclick="closeShortcutsModal()" class="p-1.5 rounded-md transition-colors hover:bg-white/10" style="color: hsl(var(--muted-foreground));" aria-label="Close keyboard shortcuts">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="p-4 space-y-4">
+          <!-- Generation Section -->
+          <div>
+            <p class="text-[10px] font-semibold uppercase tracking-wider mb-2" style="color: hsl(var(--muted-foreground));">Generation</p>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-sm" style="color: hsl(var(--foreground));">Generate image</span>
+                <div class="flex items-center gap-1">
+                  <kbd class="px-2 py-1 rounded text-xs font-mono" style="background-color: hsl(var(--muted)); color: hsl(var(--foreground));">⌘</kbd>
+                  <kbd class="px-2 py-1 rounded text-xs font-mono" style="background-color: hsl(var(--muted)); color: hsl(var(--foreground));">Enter</kbd>
+                </div>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm" style="color: hsl(var(--foreground));">Focus prompt</span>
+                <div class="flex items-center gap-1">
+                  <kbd class="px-2 py-1 rounded text-xs font-mono" style="background-color: hsl(var(--muted)); color: hsl(var(--foreground));">⌘</kbd>
+                  <kbd class="px-2 py-1 rounded text-xs font-mono" style="background-color: hsl(var(--muted)); color: hsl(var(--foreground));">K</kbd>
+                </div>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm" style="color: hsl(var(--foreground));">New prompt</span>
+                <kbd class="px-2 py-1 rounded text-xs font-mono" style="background-color: hsl(var(--muted)); color: hsl(var(--foreground));">N</kbd>
+              </div>
+            </div>
+          </div>
+
+          <!-- Navigation Section -->
+          <div>
+            <p class="text-[10px] font-semibold uppercase tracking-wider mb-2" style="color: hsl(var(--muted-foreground));">Navigation</p>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-sm" style="color: hsl(var(--foreground));">Go to Create</span>
+                <kbd class="px-2 py-1 rounded text-xs font-mono" style="background-color: hsl(var(--muted)); color: hsl(var(--foreground));">C</kbd>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm" style="color: hsl(var(--foreground));">Go to Gallery</span>
+                <kbd class="px-2 py-1 rounded text-xs font-mono" style="background-color: hsl(var(--muted)); color: hsl(var(--foreground));">G</kbd>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm" style="color: hsl(var(--foreground));">Toggle settings</span>
+                <kbd class="px-2 py-1 rounded text-xs font-mono" style="background-color: hsl(var(--muted)); color: hsl(var(--foreground));">S</kbd>
+              </div>
+            </div>
+          </div>
+
+          <!-- General Section -->
+          <div>
+            <p class="text-[10px] font-semibold uppercase tracking-wider mb-2" style="color: hsl(var(--muted-foreground));">General</p>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-sm" style="color: hsl(var(--foreground));">Close panel/modal</span>
+                <kbd class="px-2 py-1 rounded text-xs font-mono" style="background-color: hsl(var(--muted)); color: hsl(var(--foreground));">Esc</kbd>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm" style="color: hsl(var(--foreground));">Show shortcuts</span>
+                <kbd class="px-2 py-1 rounded text-xs font-mono" style="background-color: hsl(var(--muted)); color: hsl(var(--foreground));">?</kbd>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-4 py-3 border-t text-center" style="border-color: hsl(var(--border)); background-color: hsl(var(--muted) / 0.3);">
+          <p class="text-xs" style="color: hsl(var(--muted-foreground));">
+            Press <kbd class="px-1.5 py-0.5 rounded text-[10px] font-mono" style="background-color: hsl(var(--muted)); color: hsl(var(--foreground));">Esc</kbd> to close
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gallery Selection Modal -->
+    <div id="gallery-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="background-color: rgba(0, 0, 0, 0.8);" onclick="closeGalleryModal(event)">
+      <div class="w-full max-w-2xl max-h-[80vh] rounded-xl overflow-hidden" style="background-color: hsl(var(--card));" onclick="event.stopPropagation()">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between p-4 border-b" style="border-color: hsl(var(--border));">
+          <h3 class="text-sm font-semibold" style="color: hsl(var(--foreground));">Select Source Image</h3>
+          <button type="button" onclick="closeGalleryModal()" class="p-1.5 rounded-md transition-colors hover:bg-white/10" style="color: hsl(var(--muted-foreground));" aria-label="Close gallery selection">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+
+        <!-- Modal Body - Gallery Grid -->
+        <div class="p-4 overflow-y-auto" style="max-height: calc(80vh - 60px);">
+          <div id="gallery-modal-grid" class="grid grid-cols-4 gap-2">
+            <!-- Images will be populated by JavaScript -->
+            <% @images.where(status: 'completed').order(created_at: :desc).limit(20).each do |image| %>
+              <% if image.image_url.present? %>
+                <button type="button"
+                        onclick="selectGalleryImage('<%= image.image_url %>', '<%= image.prompt&.truncate(50) %>')"
+                        class="gallery-select-item relative aspect-square rounded-lg overflow-hidden border-2 transition-all hover:scale-105"
+                        style="border-color: transparent;">
+                  <img src="<%= image.image_url %>" alt="<%= image.prompt&.truncate(30) %>" class="w-full h-full object-cover">
+                  <div class="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white opacity-0 hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                  </div>
+                </button>
               <% end %>
+            <% end %>
+          </div>
+
+          <% if @images.where(status: 'completed').empty? %>
+            <div class="text-center py-8">
+              <p class="text-sm" style="color: hsl(var(--muted-foreground));">No completed images in your gallery yet.</p>
+              <p class="text-xs mt-1" style="color: hsl(var(--muted-foreground));">Generate some images first!</p>
             </div>
           <% end %>
         </div>
@@ -228,72 +497,942 @@
   </div>
 </div>
 
-<!-- Custom Scrollbar Styles -->
+<% if current_user.generations_today >= current_user.generation_quota %>
+  <div class="fixed bottom-3 right-3 p-2.5 rounded-lg shadow-lg max-w-xs" style="background-color: hsl(var(--destructive));">
+    <div class="flex items-center gap-2">
+      <svg class="w-4 h-4 flex-shrink-0 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+      </svg>
+      <p class="text-xs font-medium text-white">Daily quota reached (<%= current_user.generation_quota %>)</p>
+    </div>
+  </div>
+<% end %>
+
+<!-- Toast Notification Container (Phase 4.3) -->
+<div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col-reverse gap-2 pointer-events-none" role="region" aria-label="Notifications">
+  <!-- Toasts will be inserted here dynamically -->
+</div>
+
 <style>
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 8px;
+  /* ============================================
+     TOAST NOTIFICATIONS (Phase 4.3)
+     ============================================ */
+  .toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    min-width: 300px;
+    max-width: 400px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), 0 0 1px rgba(255, 255, 255, 0.1);
+    border: 1px solid hsl(var(--border));
+    animation: toast-slide-in 0.3s ease-out forwards;
   }
 
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: hsl(var(--background));
-    border-radius: 4px;
+  .toast.toast-removing {
+    animation: toast-slide-out 0.2s ease-in forwards;
   }
 
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: hsl(var(--border));
-    border-radius: 4px;
+  @keyframes toast-slide-in {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
   }
 
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  @keyframes toast-slide-out {
+    from {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+  }
+
+  .toast-success {
+    background: linear-gradient(135deg, hsl(142 76% 12%) 0%, hsl(var(--card)) 100%);
+    border-color: hsl(142 76% 36% / 0.3);
+  }
+  .toast-success .toast-icon {
+    color: hsl(142 76% 46%);
+  }
+
+  .toast-error {
+    background: linear-gradient(135deg, hsl(0 62% 15%) 0%, hsl(var(--card)) 100%);
+    border-color: hsl(var(--destructive) / 0.3);
+  }
+  .toast-error .toast-icon {
+    color: hsl(0 72% 56%);
+  }
+
+  .toast-info {
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.15) 0%, hsl(var(--card)) 100%);
+    border-color: hsl(var(--primary) / 0.3);
+  }
+  .toast-info .toast-icon {
+    color: hsl(var(--primary));
+  }
+
+  .toast-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+  }
+
+  .toast-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .toast-title {
+    font-weight: 600;
+    font-size: 13px;
+    color: hsl(var(--foreground));
+    margin-bottom: 2px;
+  }
+
+  .toast-message {
+    font-size: 12px;
+    color: hsl(var(--muted-foreground));
+    line-height: 1.4;
+  }
+
+  .toast-close {
+    flex-shrink: 0;
+    padding: 4px;
+    border-radius: 6px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: hsl(var(--muted-foreground));
+    transition: all 0.15s ease;
+  }
+  .toast-close:hover {
     background: hsl(var(--muted));
+    color: hsl(var(--foreground));
   }
 
-  .line-clamp-2 {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+  .toast-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    border-radius: 0 0 10px 10px;
+    animation: toast-progress 5s linear forwards;
+  }
+  .toast-success .toast-progress { background: hsl(142 76% 46%); }
+  .toast-error .toast-progress { background: hsl(0 72% 56%); }
+  .toast-info .toast-progress { background: hsl(var(--primary)); }
+
+  @keyframes toast-progress {
+    from { width: 100%; }
+    to { width: 0%; }
+  }
+
+  .line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* Image card hover animation */
+  .image-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+  .image-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.3); }
+
+  /* Responsive Grid - Explicit CSS (Tailwind classes not compiling) */
+  .image-grid {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  @media (min-width: 640px) {
+    .image-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (min-width: 1024px) {
+    .image-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+  @media (min-width: 1536px) {
+    .image-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  }
+
+  /* Enhanced Settings Panel Styles */
+  .settings-select {
+    background-image: none;
+    padding-right: 2.5rem;
+  }
+  .settings-select:focus {
+    border-color: hsl(var(--primary));
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2);
+  }
+
+  /* Custom Range Slider */
+  .settings-slider {
+    background: linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) var(--value, 50%), hsl(var(--muted)) var(--value, 50%), hsl(var(--muted)) 100%);
+  }
+  .settings-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: hsl(var(--primary));
+    cursor: pointer;
+    border: 2px solid hsl(var(--background));
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: transform 0.15s ease;
+  }
+  .settings-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+  }
+  .settings-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: hsl(var(--primary));
+    cursor: pointer;
+    border: 2px solid hsl(var(--background));
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Tooltip styles */
+  .tooltip-trigger:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 8px;
+    background: hsl(var(--popover));
+    color: hsl(var(--popover-foreground));
+    border-radius: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Focus states for inputs */
+  #negative_prompt_field:focus,
+  #seed_field:focus {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2);
+  }
+
+  /* Aspect ratio button hover */
+  .aspect-btn:hover {
+    border-color: hsl(var(--primary)) !important;
+  }
+
+  /* Enhanced Upload Dropzone */
+  .upload-dropzone {
+    min-height: 140px;
+  }
+  .upload-dropzone.drag-over {
+    border-color: hsl(var(--primary)) !important;
+    background-color: hsl(var(--primary) / 0.05) !important;
+  }
+  .upload-dropzone.drag-over .upload-icon {
+    transform: translateY(-4px);
+    color: hsl(var(--primary)) !important;
+  }
+
+  /* Animated dashed border on drag */
+  @keyframes dash-animation {
+    to {
+      stroke-dashoffset: -20;
+    }
+  }
+  .upload-dropzone.drag-over {
+    animation: pulse-border 1s ease-in-out infinite;
+  }
+  @keyframes pulse-border {
+    0%, 100% { border-color: hsl(var(--primary)); }
+    50% { border-color: hsl(var(--primary) / 0.5); }
+  }
+
+  /* Strength Slider Styling */
+  .strength-slider {
+    background: linear-gradient(to right,
+      hsl(142, 76%, 36%) 0%,
+      hsl(var(--primary)) 50%,
+      hsl(var(--destructive)) 100%
+    );
+  }
+  .strength-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: white;
+    cursor: pointer;
+    border: 3px solid hsl(var(--primary));
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  .strength-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+  }
+  .strength-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: white;
+    cursor: pointer;
+    border: 3px solid hsl(var(--primary));
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Gallery Modal Grid */
+  .gallery-select-item:hover {
+    border-color: hsl(var(--primary)) !important;
+  }
+  .gallery-select-item.selected {
+    border-color: hsl(var(--primary)) !important;
+    box-shadow: 0 0 0 2px hsl(var(--primary) / 0.3);
   }
 </style>
 
-<!-- Auto-polling for pending/processing images -->
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const pendingImages = document.querySelectorAll('[data-status="pending"], [data-status="processing"]');
+  function toggleSettings() {
+    const panel = document.getElementById('settings-panel');
+    const img2imgPanel = document.getElementById('img2img-panel');
 
-    if (pendingImages.length === 0) return;
+    if (panel.classList.contains('hidden')) {
+      // Show panel with slide animation
+      panel.classList.remove('hidden', 'panel-slide-out');
+      panel.classList.add('panel-slide-in');
+      img2imgPanel.classList.add('hidden');
+    } else {
+      // Hide panel with slide animation
+      panel.classList.remove('panel-slide-in');
+      panel.classList.add('panel-slide-out');
+      // Wait for animation to complete before hiding
+      setTimeout(() => {
+        panel.classList.add('hidden');
+        panel.classList.remove('panel-slide-out');
+      }, 200);
+    }
+  }
 
-    // Poll every 3 seconds
-    const pollInterval = setInterval(function() {
-      pendingImages.forEach(function(imageCard) {
-        const imageId = imageCard.dataset.imageId;
-        const currentStatus = imageCard.dataset.status;
+  function toggleMode() {
+    const mode = document.querySelector('input[name="generation_mode"]:checked').value;
+    const img2imgPanel = document.getElementById('img2img-panel');
+    const settingsPanel = document.getElementById('settings-panel');
+    const initImageInput = document.getElementById('init_image_input');
+    if (mode === 'image_to_image') {
+      // Show img2img panel with slide animation
+      img2imgPanel.classList.remove('hidden', 'panel-slide-out');
+      img2imgPanel.classList.add('panel-slide-in');
+      settingsPanel.classList.add('hidden');
+      initImageInput.required = true;
+    } else {
+      // Hide img2img panel with slide animation
+      img2imgPanel.classList.remove('panel-slide-in');
+      img2imgPanel.classList.add('panel-slide-out');
+      setTimeout(() => {
+        img2imgPanel.classList.add('hidden');
+        img2imgPanel.classList.remove('panel-slide-out');
+      }, 200);
+      initImageInput.required = false;
+      clearImagePreview();
+    }
+  }
 
-        // Skip if already completed or failed
-        if (currentStatus === 'completed' || currentStatus === 'failed') {
-          return;
+  function toggleImg2ImgPanel() {
+    const img2imgPanel = document.getElementById('img2img-panel');
+    // Hide panel with slide animation
+    img2imgPanel.classList.remove('panel-slide-in');
+    img2imgPanel.classList.add('panel-slide-out');
+    setTimeout(() => {
+      img2imgPanel.classList.add('hidden');
+      img2imgPanel.classList.remove('panel-slide-out');
+    }, 200);
+    // Switch back to text mode
+    const textRadio = document.querySelector('input[name="generation_mode"][value="text_to_image"]');
+    if (textRadio) {
+      textRadio.checked = true;
+    }
+    document.getElementById('init_image_input').required = false;
+  }
+
+  // Strength slider with descriptions
+  const strengthDescriptions = {
+    low: 'Low: Keep most of the original image',
+    medium: 'Medium: Balanced transformation',
+    high: 'High: Major changes, loose interpretation'
+  };
+
+  function updateStrength(value) {
+    const numValue = parseFloat(value);
+    document.getElementById('strength_input').value = value;
+    document.getElementById('strength_display').textContent = value;
+
+    // Update description based on value
+    const descEl = document.getElementById('strength_description');
+    if (numValue <= 0.35) {
+      descEl.textContent = strengthDescriptions.low;
+      descEl.style.color = 'hsl(142, 76%, 36%)'; // Green
+    } else if (numValue <= 0.65) {
+      descEl.textContent = strengthDescriptions.medium;
+      descEl.style.color = 'hsl(var(--primary))'; // Cyan
+    } else {
+      descEl.textContent = strengthDescriptions.high;
+      descEl.style.color = 'hsl(var(--destructive))'; // Red
+    }
+  }
+
+  // Image zoom modal
+  function openImageZoom(event) {
+    event.stopPropagation();
+    const previewImg = document.getElementById('preview-img');
+    const zoomImg = document.getElementById('zoom-img');
+    const modal = document.getElementById('image-zoom-modal');
+    zoomImg.src = previewImg.src;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  function closeImageZoom(event) {
+    if (event) event.stopPropagation();
+    const modal = document.getElementById('image-zoom-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+
+  // Gallery selection modal
+  function openGalleryModal() {
+    const modal = document.getElementById('gallery-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  function closeGalleryModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    const modal = document.getElementById('gallery-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+
+  function selectGalleryImage(imageUrl, prompt) {
+    // Create a blob from the URL and set it as the preview
+    fetch(imageUrl)
+      .then(response => response.blob())
+      .then(blob => {
+        // Set preview image
+        const previewImg = document.getElementById('preview-img');
+        previewImg.src = imageUrl;
+
+        // Show preview, hide upload prompt
+        document.getElementById('upload-prompt').classList.add('hidden');
+        document.getElementById('image-preview').classList.remove('hidden');
+
+        // Show filename as prompt snippet
+        const filenameEl = document.getElementById('preview-filename');
+        if (filenameEl && prompt) {
+          filenameEl.textContent = prompt;
         }
 
-        // Fetch status from API
-        fetch(`/images/${imageId}/status`)
-          .then(response => response.json())
+        // Create a File from the blob and set it on the input
+        const file = new File([blob], 'gallery-image.png', { type: blob.type });
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        document.getElementById('init_image_input').files = dataTransfer.files;
+
+        // Close modal
+        closeGalleryModal();
+      })
+      .catch(err => {
+        console.error('Failed to load gallery image:', err);
+        alert('Failed to load image. Please try again.');
+      });
+  }
+
+  // Escape key to close modals
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeImageZoom();
+      closeGalleryModal();
+    }
+  });
+
+  // Model descriptions
+  const modelDescriptions = {
+    'sd-v1-5': 'Fast generation, good for quick iterations',
+    'openjourney': 'Midjourney-style artistic renders, beautiful aesthetic',
+    'sdxl': 'Highest quality, best for final outputs (slower)'
+  };
+
+  function updateModel(value) {
+    document.getElementById('model_key_input').value = value;
+    document.getElementById('model_description').textContent = modelDescriptions[value] || '';
+  }
+
+  function setAspectRatio(ratio, width, height) {
+    // Update hidden inputs
+    document.getElementById('width_input').value = width;
+    document.getElementById('height_input').value = height;
+
+    // Update selects
+    document.getElementById('width_select').value = width;
+    document.getElementById('height_select').value = height;
+
+    // Update display
+    document.getElementById('dimensions_display').textContent = `${width} × ${height} px`;
+
+    // Update button styles
+    document.querySelectorAll('.aspect-btn').forEach(btn => {
+      if (btn.dataset.ratio === ratio) {
+        btn.style.borderColor = 'hsl(var(--primary))';
+        btn.style.color = 'hsl(var(--primary))';
+        btn.style.backgroundColor = 'hsl(var(--primary) / 0.1)';
+      } else {
+        btn.style.borderColor = 'hsl(var(--border))';
+        btn.style.color = 'hsl(var(--muted-foreground))';
+        btn.style.backgroundColor = 'transparent';
+      }
+    });
+  }
+
+  function updateDimension(type, value) {
+    document.getElementById(type + '_input').value = value;
+    const width = document.getElementById('width_select').value;
+    const height = document.getElementById('height_select').value;
+    document.getElementById('dimensions_display').textContent = `${width} × ${height} px`;
+
+    // Clear aspect ratio selection when manually changing dimensions
+    document.querySelectorAll('.aspect-btn').forEach(btn => {
+      btn.style.borderColor = 'hsl(var(--border))';
+      btn.style.color = 'hsl(var(--muted-foreground))';
+      btn.style.backgroundColor = 'transparent';
+    });
+  }
+
+  function updateSlider(type, value) {
+    document.getElementById(type + '_input').value = value;
+    document.getElementById(type + '_display').textContent = value;
+
+    // Update the slider track fill via CSS custom property
+    const slider = document.getElementById(type + '_slider');
+    if (slider) {
+      const min = parseFloat(slider.min);
+      const max = parseFloat(slider.max);
+      const percent = ((value - min) / (max - min)) * 100;
+      slider.style.setProperty('--value', percent + '%');
+    }
+  }
+
+  function toggleAdvanced() {
+    const settings = document.getElementById('advanced-settings');
+    const chevron = document.getElementById('advanced-chevron');
+    settings.classList.toggle('hidden');
+    chevron.style.transform = settings.classList.contains('hidden') ? '' : 'rotate(180deg)';
+  }
+
+  function randomizeSeed() {
+    const seed = Math.floor(Math.random() * 2147483647);
+    document.getElementById('seed_field').value = seed;
+    document.getElementById('seed_input').value = seed;
+  }
+
+  function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { alert('File must be < 10MB'); return; }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      document.getElementById('preview-img').src = e.target.result;
+      document.getElementById('upload-prompt').classList.add('hidden');
+      document.getElementById('image-preview').classList.remove('hidden');
+
+      // Show filename
+      const filenameEl = document.getElementById('preview-filename');
+      if (filenameEl) {
+        filenameEl.textContent = file.name;
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearImagePreview(event) {
+    if (event) event.stopPropagation();
+    document.getElementById('init_image_input').value = '';
+    document.getElementById('preview-img').src = '';
+    document.getElementById('upload-prompt').classList.remove('hidden');
+    document.getElementById('image-preview').classList.add('hidden');
+    const filenameEl = document.getElementById('preview-filename');
+    if (filenameEl) filenameEl.textContent = '';
+  }
+
+  // Enhanced drag-drop with animations
+  const uploadArea = document.getElementById('upload-area');
+  if (uploadArea) {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => {
+      uploadArea.addEventListener(e, ev => { ev.preventDefault(); ev.stopPropagation(); }, false);
+    });
+    ['dragenter', 'dragover'].forEach(e => {
+      uploadArea.addEventListener(e, () => {
+        uploadArea.classList.add('drag-over');
+      }, false);
+    });
+    ['dragleave', 'drop'].forEach(e => {
+      uploadArea.addEventListener(e, () => {
+        uploadArea.classList.remove('drag-over');
+      }, false);
+    });
+    uploadArea.addEventListener('drop', e => {
+      document.getElementById('init_image_input').files = e.dataTransfer.files;
+      handleFileSelect({ target: { files: e.dataTransfer.files } });
+    }, false);
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    // Initialize slider track fills on page load
+    function initSliders() {
+      ['steps', 'guidance'].forEach(type => {
+        const slider = document.getElementById(type + '_slider');
+        if (slider) {
+          const min = parseFloat(slider.min);
+          const max = parseFloat(slider.max);
+          const value = parseFloat(slider.value);
+          const percent = ((value - min) / (max - min)) * 100;
+          slider.style.setProperty('--value', percent + '%');
+        }
+      });
+    }
+    initSliders();
+
+    function pollImages() {
+      const pending = document.querySelectorAll('[data-status="pending"], [data-status="processing"]');
+      if (pending.length === 0) return;
+      pending.forEach(card => {
+        const id = card.dataset.imageId;
+        const currentStatus = card.dataset.status;
+        if (currentStatus === 'completed' || currentStatus === 'failed') return;
+        fetch(`/images/${id}/status`)
+          .then(r => r.json())
           .then(data => {
-            if (data.generation_complete) {
-              // Reload page to show updated image
+            // Reload if completed OR if status changed from pending to processing
+            // (card needs to re-render from queued UI to generating UI)
+            if (data.generation_complete || (currentStatus === 'pending' && data.status === 'processing')) {
               window.location.reload();
-            } else {
-              // Update status in data attribute
-              imageCard.dataset.status = data.status;
+              return;
+            }
+            else {
+              card.dataset.status = data.status;
+
+              // Update progress if available
+              if (data.progress_percent !== null && data.progress_percent !== undefined) {
+                const progress = data.progress_percent;
+
+                // Update progress ring (SVG circle)
+                const progressCircle = card.querySelector('circle:last-child');
+                if (progressCircle) {
+                  const circumference = 175.9; // 2 * PI * 28 (radius)
+                  const offset = circumference * (1 - progress / 100);
+                  progressCircle.style.strokeDashoffset = offset;
+                }
+
+                // Update percentage text in center of ring
+                const percentText = card.querySelector('.text-sm.font-bold');
+                if (percentText) {
+                  percentText.textContent = Math.round(progress) + '%';
+                }
+
+                // Update progress bar in card (the horizontal bar below the ring)
+                const progressBarContainer = card.querySelector('.h-1.rounded-full.overflow-hidden');
+                if (progressBarContainer) {
+                  const progressBar = progressBarContainer.querySelector('div');
+                  if (progressBar) {
+                    // Remove indeterminate animation class when we have real progress
+                    progressBar.classList.remove('progress-indeterminate');
+                    progressBar.style.width = progress + '%';
+                  }
+                }
+
+                // Update status text below ring
+                const statusText = card.querySelector('.text-xs.font-semibold');
+                if (statusText && data.status === 'processing') {
+                  statusText.textContent = Math.round(progress) + '% Complete';
+                }
+
+                // Update header progress bar (for the currently processing image)
+                if (data.status === 'processing') {
+                  const headerProgressBar = document.getElementById('header-progress-bar');
+                  if (headerProgressBar) {
+                    headerProgressBar.style.width = progress + '%';
+                  }
+                }
+              }
+
+              // Update badge text
+              const badges = card.querySelectorAll('[class*="rounded-full"][class*="text-xs"]');
+              badges.forEach(badge => {
+                if (badge.textContent.includes('Generating') || badge.textContent.includes('Queued')) {
+                  badge.innerHTML = data.status === 'processing'
+                    ? '<span class="w-1.5 h-1.5 rounded-full bg-white/80 animate-ping"></span><span class="relative">Generating</span>'
+                    : badge.innerHTML;
+                }
+              });
             }
           })
-          .catch(error => console.error('Status check failed:', error));
+          .catch(err => console.error('Status check failed:', err));
       });
-
-      // Stop polling if all images are complete
-      const stillPending = document.querySelectorAll('[data-status="pending"], [data-status="processing"]');
-      if (stillPending.length === 0) {
-        clearInterval(pollInterval);
-      }
-    }, 3000); // 3 second interval
+    }
+    pollImages();
+    setInterval(pollImages, 2000);
   });
+
+  // ============================================
+  // KEYBOARD SHORTCUTS (Phase 4.2)
+  // ============================================
+
+  // Shortcuts modal toggle
+  function toggleShortcutsModal() {
+    const modal = document.getElementById('shortcuts-modal');
+    if (modal.classList.contains('hidden')) {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    } else {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+  }
+
+  function closeShortcutsModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    const modal = document.getElementById('shortcuts-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+
+  // Global keyboard shortcuts
+  document.addEventListener('keydown', function(e) {
+    // Skip if user is typing in an input/textarea
+    const isTyping = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
+
+    // Escape always works - close modals
+    if (e.key === 'Escape') {
+      closeImageZoom();
+      closeGalleryModal();
+      closeShortcutsModal();
+
+      // Close settings/img2img panels
+      const settingsPanel = document.getElementById('settings-panel');
+      const img2imgPanel = document.getElementById('img2img-panel');
+      if (!settingsPanel.classList.contains('hidden')) {
+        toggleSettings();
+      }
+      if (!img2imgPanel.classList.contains('hidden')) {
+        toggleImg2ImgPanel();
+      }
+      return;
+    }
+
+    // Don't trigger shortcuts when typing (except Escape above)
+    if (isTyping) return;
+
+    // ? - Show shortcuts modal
+    if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+      e.preventDefault();
+      toggleShortcutsModal();
+      return;
+    }
+
+    // G - Go to Gallery (scroll to gallery)
+    if (e.key === 'g' || e.key === 'G') {
+      e.preventDefault();
+      const gallery = document.getElementById('gallery-area');
+      if (gallery) {
+        gallery.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      // Also click Gallery nav if exists
+      const galleryNav = document.querySelector('[data-nav="gallery"]');
+      if (galleryNav) galleryNav.click();
+      return;
+    }
+
+    // C - Go to Create (focus prompt)
+    if (e.key === 'c' || e.key === 'C') {
+      e.preventDefault();
+      const promptInput = document.getElementById('prompt-input');
+      if (promptInput) {
+        promptInput.focus();
+        promptInput.select();
+      }
+      return;
+    }
+
+    // S - Toggle settings panel
+    if (e.key === 's' || e.key === 'S') {
+      e.preventDefault();
+      toggleSettings();
+      return;
+    }
+
+    // N - New generation (focus prompt, clear it)
+    if (e.key === 'n' || e.key === 'N') {
+      e.preventDefault();
+      const promptInput = document.getElementById('prompt-input');
+      if (promptInput) {
+        promptInput.value = '';
+        promptInput.focus();
+      }
+      return;
+    }
+  });
+
+  // Download image helper
+  function downloadImage(url, filename) {
+    showInfoToast('Downloading', 'Preparing your image...');
+    fetch(url)
+      .then(response => response.blob())
+      .then(blob => {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+        showSuccessToast('Downloaded', filename);
+      })
+      .catch(err => {
+        console.error('Download failed:', err);
+        showErrorToast('Download Failed', 'Please try again.');
+      });
+  }
+
+  // Remix image - fills prompt bar with original prompt
+  function remixImage(imageId) {
+    fetch(`/images/${imageId}.json`)
+      .then(response => response.json())
+      .then(data => {
+        const promptInput = document.getElementById('prompt_input') || document.getElementById('prompt-input');
+        if (promptInput && data.prompt) {
+          promptInput.value = data.prompt;
+          promptInput.focus();
+          // Scroll to top to show prompt bar
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          showSuccessToast('Prompt Loaded', 'Ready to remix this image');
+        }
+      })
+      .catch(err => {
+        console.error('Failed to load image data:', err);
+        showErrorToast('Remix Failed', 'Could not load image data');
+      });
+  }
+
+  // Retry failed generation
+  function retryGeneration(imageId) {
+    if (!confirm('Retry this generation?')) return;
+    showInfoToast('Retrying', 'Restarting generation...');
+    fetch(`/images/${imageId}/retry`, {
+      method: 'POST',
+      headers: {
+        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content,
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => {
+      if (response.ok) {
+        showSuccessToast('Generation Started', 'Retrying your image');
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        showErrorToast('Retry Failed', 'Please try again.');
+      }
+    })
+    .catch(err => {
+      console.error('Retry failed:', err);
+      showErrorToast('Retry Failed', 'Please try again.');
+    });
+  }
+
+  // ============================================
+  // TOAST NOTIFICATIONS (Phase 4.3)
+  // ============================================
+
+  const toastIcons = {
+    success: `<svg class="toast-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+    </svg>`,
+    error: `<svg class="toast-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+    </svg>`,
+    info: `<svg class="toast-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+    </svg>`
+  };
+
+  let toastCounter = 0;
+  const MAX_TOASTS = 3;
+
+  function showToast(type, title, message, duration = 5000) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    // Remove oldest toast if at max
+    const existingToasts = container.querySelectorAll('.toast');
+    if (existingToasts.length >= MAX_TOASTS) {
+      const oldest = existingToasts[existingToasts.length - 1];
+      removeToast(oldest);
+    }
+
+    const toastId = `toast-${++toastCounter}`;
+    const toast = document.createElement('div');
+    toast.id = toastId;
+    toast.className = `toast toast-${type}`;
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML = `
+      ${toastIcons[type] || toastIcons.info}
+      <div class="toast-content">
+        <div class="toast-title">${title}</div>
+        ${message ? `<div class="toast-message">${message}</div>` : ''}
+      </div>
+      <button class="toast-close" onclick="removeToastById('${toastId}')" aria-label="Dismiss">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+      <div class="toast-progress" style="animation-duration: ${duration}ms;"></div>
+    `;
+
+    container.insertBefore(toast, container.firstChild);
+
+    // Auto-remove after duration
+    setTimeout(() => {
+      if (document.getElementById(toastId)) {
+        removeToast(toast);
+      }
+    }, duration);
+
+    return toastId;
+  }
+
+  function removeToast(toast) {
+    toast.classList.add('toast-removing');
+    setTimeout(() => toast.remove(), 200);
+  }
+
+  function removeToastById(id) {
+    const toast = document.getElementById(id);
+    if (toast) removeToast(toast);
+  }
+
+  // Convenience functions
+  function showSuccessToast(title, message) {
+    return showToast('success', title, message);
+  }
+
+  function showErrorToast(title, message) {
+    return showToast('error', title, message);
+  }
+
+  function showInfoToast(title, message) {
+    return showToast('info', title, message);
+  }
 </script>

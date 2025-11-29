@@ -1,0 +1,207 @@
+<%# Prompt Bar - Midjourney-style centered input %>
+<%# Rendered in layout header area for authenticated users %>
+
+<% header_pending_count = current_user.images.where(status: ['pending', 'processing']).count %>
+<% processing_image = current_user.images.find_by(status: 'processing') %>
+
+<header class="sticky top-0 z-40 border-b" style="background-color: hsl(var(--card)); border-color: hsl(var(--border));">
+  <%# Queue Status Bar - Shows when generating %>
+  <% if header_pending_count > 0 %>
+    <div class="queue-status-bar px-4 py-2 border-b flex items-center justify-center gap-3" style="background-color: hsl(var(--muted) / 0.5); border-color: hsl(var(--border));">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--primary));">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        <span class="text-xs font-medium" style="color: hsl(var(--foreground));">
+          <% if processing_image %>
+            Generating <%= header_pending_count > 1 ? "1 of #{header_pending_count}" : "" %>
+          <% else %>
+            <%= header_pending_count %> in queue
+          <% end %>
+        </span>
+      </div>
+
+      <%# Mini progress bar %>
+      <div class="w-24 h-1.5 rounded-full overflow-hidden" style="background-color: hsl(var(--muted));">
+        <div id="header-progress-bar" class="h-full rounded-full transition-all duration-500" style="background-color: hsl(var(--primary)); width: 5%;"></div>
+      </div>
+
+      <% if processing_image %>
+        <span class="text-[10px] truncate max-w-[150px]" style="color: hsl(var(--muted-foreground));">
+          "<%= processing_image.prompt&.truncate(25) %>"
+        </span>
+      <% end %>
+    </div>
+  <% end %>
+
+  <div class="px-4 py-4">
+    <%= form_with model: Image.new, url: images_path, method: :post, multipart: true, data: { turbo: false }, class: "flex items-center gap-4 max-w-3xl mx-auto", id: "generate-form" do |f| %>
+
+      <%# Mode Toggle (Text/Image) - Pill style %>
+      <div class="flex rounded-full overflow-hidden text-sm font-medium" style="background-color: hsl(var(--muted));">
+        <label class="cursor-pointer">
+          <input type="radio" name="generation_mode" value="text_to_image" checked class="peer sr-only" onchange="toggleMode()">
+          <span class="px-4 py-2 block transition-all peer-checked:bg-[hsl(var(--primary))] peer-checked:text-white peer-checked:shadow-sm" style="color: hsl(var(--muted-foreground));">Text</span>
+        </label>
+        <label class="cursor-pointer">
+          <input type="radio" name="generation_mode" value="image_to_image" class="peer sr-only" onchange="toggleMode()">
+          <span class="px-4 py-2 block transition-all peer-checked:bg-[hsl(var(--primary))] peer-checked:text-white peer-checked:shadow-sm" style="color: hsl(var(--muted-foreground));">Image</span>
+        </label>
+      </div>
+
+      <%# Main Prompt Input - Larger pill with glow on focus %>
+      <div class="flex-1 relative group">
+        <div class="prompt-input-container flex items-center gap-3 px-5 py-3 rounded-full border transition-all duration-200"
+             style="background-color: hsl(var(--background)); border-color: hsl(var(--border));">
+
+          <%# Sparkle icon - animates on focus %>
+          <svg class="w-5 h-5 flex-shrink-0 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+          </svg>
+
+          <%= f.text_field :prompt,
+              id: "prompt-input",
+              placeholder: "What will you create today?",
+              required: true,
+              autocomplete: "off",
+              class: "flex-1 bg-transparent border-0 outline-none text-base",
+              style: "color: hsl(var(--foreground));",
+              data: { action: "keydown->prompt#handleKeydown" } %>
+
+          <%# Keyboard shortcut hint - shows when empty %>
+          <span id="shortcut-hint" class="hidden sm:flex items-center gap-1 text-xs whitespace-nowrap" style="color: hsl(var(--muted-foreground));">
+            <kbd class="px-1.5 py-0.5 rounded text-xs font-mono" style="background-color: hsl(var(--muted));">⌘</kbd>
+            <kbd class="px-1.5 py-0.5 rounded text-xs font-mono" style="background-color: hsl(var(--muted));">↵</kbd>
+          </span>
+
+          <%# Keyboard shortcuts button %>
+          <button type="button" onclick="toggleShortcutsModal()" class="p-1.5 rounded-full transition-colors hover:bg-white/10 hidden sm:block" title="Keyboard shortcuts (?)" aria-label="View keyboard shortcuts">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </button>
+
+          <%# Settings toggle %>
+          <button type="button" onclick="toggleSettings()" class="p-1.5 rounded-full transition-colors hover:bg-white/10" title="Generation Settings (S)" aria-label="Open generation settings">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <%# Generate Button - Larger, more prominent %>
+      <%= f.submit "Generate",
+          id: "generate-btn",
+          disabled: !current_user.can_generate?,
+          class: "dw-btn dw-btn-primary dw-btn-lg dw-glow-cyan #{current_user.can_generate? ? '' : 'opacity-50 cursor-not-allowed'}" %>
+
+      <%# Hidden Inputs for settings %>
+      <input type="hidden" name="image[model_key]" id="model_key_input" value="sd-v1-5">
+      <input type="hidden" name="image[num_inference_steps]" id="steps_input" value="30">
+      <input type="hidden" name="image[guidance_scale]" id="guidance_input" value="7.5">
+      <input type="hidden" name="image[width]" id="width_input" value="512">
+      <input type="hidden" name="image[height]" id="height_input" value="512">
+      <input type="hidden" name="image[negative_prompt]" id="negative_prompt_input" value="">
+      <input type="hidden" name="image[seed]" id="seed_input" value="">
+      <input type="hidden" name="strength" id="strength_input" value="0.3">
+    <% end %>
+  </div>
+</header>
+
+<style>
+  /* Focus state for prompt input container */
+  .prompt-input-container:focus-within {
+    border-color: hsl(var(--primary)) !important;
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15), 0 0 20px hsl(var(--primary) / 0.1);
+  }
+
+  .prompt-input-container:focus-within svg:first-child {
+    color: hsl(var(--primary)) !important;
+  }
+
+  /* Hide shortcut hint when input has value */
+  #prompt-input:not(:placeholder-shown) ~ #shortcut-hint {
+    display: none !important;
+  }
+
+  /* Subtle pulse on generate button when ready */
+  @keyframes ready-pulse {
+    0%, 100% { box-shadow: 0 0 20px hsl(var(--primary) / 0.3); }
+    50% { box-shadow: 0 0 25px hsl(var(--primary) / 0.5); }
+  }
+
+  #generate-btn:not(:disabled):hover {
+    animation: ready-pulse 1.5s ease-in-out infinite;
+  }
+
+  /* Queue progress bar - now controlled by JS polling */
+  #header-progress-bar {
+    transition: width 0.5s ease-out;
+  }
+
+  /* Queue status bar subtle gradient */
+  .queue-status-bar {
+    background: linear-gradient(90deg,
+      hsl(var(--muted) / 0.3) 0%,
+      hsl(var(--primary) / 0.1) 50%,
+      hsl(var(--muted) / 0.3) 100%
+    );
+    background-size: 200% 100%;
+    animation: queue-gradient 3s ease-in-out infinite;
+  }
+
+  @keyframes queue-gradient {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+</style>
+
+<script>
+  // Keyboard shortcuts for prompt bar
+  document.addEventListener('DOMContentLoaded', function() {
+    const promptInput = document.getElementById('prompt-input');
+    const generateBtn = document.getElementById('generate-btn');
+    const form = document.getElementById('generate-form');
+
+    // Show toast on form submit
+    form.addEventListener('submit', function(e) {
+      const promptText = promptInput.value.trim();
+      if (promptText && typeof showInfoToast === 'function') {
+        showInfoToast('Generation Started', promptText.substring(0, 40) + (promptText.length > 40 ? '...' : ''));
+      }
+    });
+
+    // Cmd/Ctrl + Enter to generate
+    document.addEventListener('keydown', function(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (promptInput.value.trim() && !generateBtn.disabled) {
+          form.submit();
+        }
+      }
+
+      // Cmd/Ctrl + K to focus prompt
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        promptInput.focus();
+        promptInput.select();
+      }
+
+      // Escape to blur
+      if (e.key === 'Escape' && document.activeElement === promptInput) {
+        promptInput.blur();
+      }
+    });
+
+    // Submit on Enter (without Cmd) when input is focused
+    promptInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        if (this.value.trim() && !generateBtn.disabled) {
+          form.submit();
+        }
+      }
+    });
+  });
+</script>

@@ -2,14 +2,18 @@
   <div class="max-w-md w-full space-y-8 rounded-2xl border p-10" style="background-color: hsl(var(--card)); border-color: hsl(var(--card-border)); box-shadow: var(--shadow-xl);">
     <!-- Header -->
     <div class="text-center">
-      <h1 class="text-4xl font-bold" style="color: hsl(var(--primary));">
-        Dragon Wings AI Image Generator
-      </h1>
-      <h2 class="mt-6 text-3xl font-extrabold" style="color: hsl(var(--card-foreground));">
+      <div class="flex items-center justify-center gap-3 mb-4">
+        <%= image_tag "dragon_wings_logo.png", alt: "Dragon Wings", class: "w-12 h-12" %>
+        <div class="text-left">
+          <h1 class="text-2xl font-bold" style="color: hsl(var(--foreground));">Dragon Wings</h1>
+          <p class="text-sm" style="color: hsl(var(--muted-foreground));">AI Image Generator</p>
+        </div>
+      </div>
+      <h2 class="text-2xl font-bold" style="color: hsl(var(--card-foreground));">
         Create your account
       </h2>
       <p class="mt-2 text-sm" style="color: hsl(var(--muted-foreground));">
-        🖼️ AI-Powered Image Generation
+        Get started with AI-powered image generation
       </p>
     </div>
 
