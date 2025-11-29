@@ -94,6 +94,28 @@ class ImagesController < ApplicationController
     @image = current_user.images.find(params[:id])
   end
 
+  # POST /images/enhance_prompt
+  # AJAX endpoint to enhance a weak prompt with quality keywords
+  def enhance_prompt
+    prompt = params[:prompt].to_s.strip
+    model_key = params[:model_key] || 'sd-v1-5'
+
+    if prompt.blank?
+      render json: { error: 'Prompt is required' }, status: :unprocessable_entity
+      return
+    end
+
+    analysis = PromptEnhancerService.analyze(prompt)
+    enhanced = PromptEnhancerService.enhance(prompt, model_key)
+
+    render json: {
+      original: prompt,
+      enhanced: enhanced,
+      was_enhanced: prompt != enhanced,
+      analysis: analysis
+    }
+  end
+
   # GET /images/:id/status
   def status
     begin
