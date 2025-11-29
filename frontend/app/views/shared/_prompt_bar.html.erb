@@ -66,7 +66,13 @@
               autocomplete: "off",
               class: "flex-1 bg-transparent border-0 outline-none text-base",
               style: "color: hsl(var(--foreground));",
+              oninput: "updateTokenCount()",
               data: { action: "keydown->prompt#handleKeydown" } %>
+
+          <%# Token Counter - shows token usage against CLIP limit %>
+          <span id="token-counter" class="flex items-center gap-1 text-xs whitespace-nowrap token-counter-green" style="color: hsl(var(--muted-foreground));">
+            <span id="token-count">0</span>/77
+          </span>
 
           <%# Keyboard shortcut hint - shows when empty %>
           <span id="shortcut-hint" class="hidden sm:flex items-center gap-1 text-xs whitespace-nowrap" style="color: hsl(var(--muted-foreground));">
@@ -106,6 +112,55 @@
       <input type="hidden" name="image[seed]" id="seed_input" value="">
       <input type="hidden" name="strength" id="strength_input" value="0.3">
     <% end %>
+
+    <%# Prompt Tips - Collapsible section %>
+    <div class="max-w-3xl mx-auto mt-2">
+      <button type="button" onclick="togglePromptTips()" class="flex items-center gap-1.5 text-xs transition-colors hover:opacity-80" style="color: hsl(var(--muted-foreground));" aria-expanded="false" aria-controls="prompt-tips">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--primary));">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+        </svg>
+        <span>Prompt Tips</span>
+        <svg id="tips-chevron" class="w-3 h-3 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+        </svg>
+      </button>
+
+      <div id="prompt-tips" class="hidden mt-3 p-3 rounded-lg border text-xs" style="background-color: hsl(var(--muted) / 0.3); border-color: hsl(var(--border));">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="flex items-start gap-2">
+            <span class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style="background-color: hsl(var(--primary) / 0.2); color: hsl(var(--primary));">1</span>
+            <div>
+              <p class="font-medium" style="color: hsl(var(--foreground));">Be specific</p>
+              <p style="color: hsl(var(--muted-foreground));">"golden retriever puppy" beats "dog"</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style="background-color: hsl(var(--primary) / 0.2); color: hsl(var(--primary));">2</span>
+            <div>
+              <p class="font-medium" style="color: hsl(var(--foreground));">Include style</p>
+              <p style="color: hsl(var(--muted-foreground));">"oil painting", "photograph", "3D render"</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style="background-color: hsl(var(--primary) / 0.2); color: hsl(var(--primary));">3</span>
+            <div>
+              <p class="font-medium" style="color: hsl(var(--foreground));">Add lighting</p>
+              <p style="color: hsl(var(--muted-foreground));">"golden hour", "studio lighting", "neon glow"</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style="background-color: hsl(var(--primary) / 0.2); color: hsl(var(--primary));">4</span>
+            <div>
+              <p class="font-medium" style="color: hsl(var(--foreground));">Specify camera</p>
+              <p style="color: hsl(var(--muted-foreground));">"close-up", "wide angle", "aerial view"</p>
+            </div>
+          </div>
+        </div>
+        <p class="mt-3 pt-2 border-t" style="color: hsl(var(--muted-foreground)); border-color: hsl(var(--border));">
+          <strong style="color: hsl(var(--foreground));">Pro tip:</strong> Put the most important elements first. CLIP processes tokens left-to-right with decreasing weight.
+        </p>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -123,6 +178,25 @@
   /* Hide shortcut hint when input has value */
   #prompt-input:not(:placeholder-shown) ~ #shortcut-hint {
     display: none !important;
+  }
+
+  /* Token counter color states */
+  .token-counter-green { color: hsl(142 76% 36%) !important; }
+  .token-counter-yellow { color: hsl(45 93% 47%) !important; }
+  .token-counter-red { color: hsl(0 84% 60%) !important; }
+
+  /* Tips section animation */
+  #prompt-tips {
+    animation: slideDown 0.2s ease-out;
+  }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  #tips-chevron.rotated {
+    transform: rotate(180deg);
   }
 
   /* Subtle pulse on generate button when ready */
@@ -158,11 +232,61 @@
 </style>
 
 <script>
+  // Token counter - estimates CLIP token count from word count
+  // CLIP uses BPE tokenizer, roughly 1.3 tokens per word on average
+  function updateTokenCount() {
+    const promptInput = document.getElementById('prompt-input');
+    const tokenCountEl = document.getElementById('token-count');
+    const tokenCounterEl = document.getElementById('token-counter');
+
+    if (!promptInput || !tokenCountEl || !tokenCounterEl) return;
+
+    const text = promptInput.value.trim();
+    const wordCount = text ? text.split(/\s+/).length : 0;
+    const estimatedTokens = Math.ceil(wordCount * 1.3);
+
+    tokenCountEl.textContent = estimatedTokens;
+
+    // Update color based on token count
+    tokenCounterEl.classList.remove('token-counter-green', 'token-counter-yellow', 'token-counter-red');
+
+    if (estimatedTokens > 75) {
+      tokenCounterEl.classList.add('token-counter-red');
+      tokenCounterEl.title = 'Prompt may be truncated (77 token limit)';
+    } else if (estimatedTokens > 60) {
+      tokenCounterEl.classList.add('token-counter-yellow');
+      tokenCounterEl.title = 'Approaching token limit';
+    } else {
+      tokenCounterEl.classList.add('token-counter-green');
+      tokenCounterEl.title = 'Token count OK';
+    }
+  }
+
+  // Toggle prompt tips visibility
+  function togglePromptTips() {
+    const tips = document.getElementById('prompt-tips');
+    const chevron = document.getElementById('tips-chevron');
+    const button = tips.previousElementSibling;
+
+    if (tips.classList.contains('hidden')) {
+      tips.classList.remove('hidden');
+      chevron.classList.add('rotated');
+      button.setAttribute('aria-expanded', 'true');
+    } else {
+      tips.classList.add('hidden');
+      chevron.classList.remove('rotated');
+      button.setAttribute('aria-expanded', 'false');
+    }
+  }
+
   // Keyboard shortcuts for prompt bar
   document.addEventListener('DOMContentLoaded', function() {
     const promptInput = document.getElementById('prompt-input');
     const generateBtn = document.getElementById('generate-btn');
     const form = document.getElementById('generate-form');
+
+    // Initialize token count on page load
+    updateTokenCount();
 
     // Show toast on form submit
     form.addEventListener('submit', function(e) {
