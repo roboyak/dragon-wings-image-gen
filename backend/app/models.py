@@ -27,6 +27,7 @@ from diffusers import (
     StableDiffusionXLPipeline,
     StableDiffusionXLImg2ImgPipeline,
     DPMSolverMultistepScheduler,
+    FluxPipeline,
 )
 from .config import settings
 
@@ -42,6 +43,12 @@ class StableDiffusionModel:
         "stabilityai/stable-diffusion-xl-refiner-1.0",
     ]
 
+    # FLUX model identifiers
+    FLUX_MODEL_IDS = [
+        "black-forest-labs/FLUX.1-schnell",
+        "black-forest-labs/FLUX.1-dev",
+    ]
+
     def __init__(self):
         # Cache for loaded models: {model_id: {"txt2img": pipe, "img2img": pipe}}
         self.model_cache = {}
@@ -51,6 +58,10 @@ class StableDiffusionModel:
     def _is_sdxl_model(self, model_id: str) -> bool:
         """Check if the model is an SDXL model."""
         return any(sdxl_id in model_id for sdxl_id in self.SDXL_MODEL_IDS)
+
+    def _is_flux_model(self, model_id: str) -> bool:
+        """Check if the model is a FLUX model."""
+        return any(flux_id in model_id for flux_id in self.FLUX_MODEL_IDS)
 
     def load_model(self, model_id: str = None):
         """Load the Stable Diffusion model into memory.
@@ -67,27 +78,40 @@ class StableDiffusionModel:
         logger.info(f"Loading txt2img model: {model_id} on device: {self.device}")
 
         try:
-            # Determine dtype based on precision setting
-            # MPS requires float32 for the entire pipeline to avoid dtype mismatch errors
-            if self.device == "mps":
+            # Detect model type
+            is_flux = self._is_flux_model(model_id)
+            is_sdxl = self._is_sdxl_model(model_id)
+
+            # Determine dtype based on precision setting and model type
+            # MPS requires float32 for SD pipelines to avoid dtype mismatch errors
+            # FLUX can use bfloat16 on MPS for better performance
+            if is_flux:
+                # FLUX works well with bfloat16
+                torch_dtype = torch.bfloat16
+                logger.info("Using bfloat16 for FLUX model")
+            elif self.device == "mps":
                 torch_dtype = torch.float32
                 logger.info("Using float32 for MPS to avoid VAE dtype mismatch")
             else:
                 torch_dtype = torch.float16 if settings.model_precision == "fp16" else torch.float32
 
             # Select the correct pipeline class based on model type
-            is_sdxl = self._is_sdxl_model(model_id)
-            pipeline_class = StableDiffusionXLPipeline if is_sdxl else StableDiffusionPipeline
+            if is_flux:
+                pipeline_class = FluxPipeline
+            elif is_sdxl:
+                pipeline_class = StableDiffusionXLPipeline
+            else:
+                pipeline_class = StableDiffusionPipeline
 
-            logger.info(f"Using pipeline: {pipeline_class.__name__} (SDXL={is_sdxl}, dtype={torch_dtype})")
+            logger.info(f"Using pipeline: {pipeline_class.__name__} (FLUX={is_flux}, SDXL={is_sdxl}, dtype={torch_dtype})")
 
             # Load the model
             load_kwargs = {
                 "torch_dtype": torch_dtype,
                 "token": settings.hf_token,
             }
-            # Only add safety_checker for non-SDXL models (SDXL doesn't have it)
-            if not is_sdxl:
+            # Only add safety_checker for non-SDXL and non-FLUX models
+            if not is_sdxl and not is_flux:
                 load_kwargs["safety_checker"] = None
 
             pipe = pipeline_class.from_pretrained(model_id, **load_kwargs)
@@ -100,14 +124,22 @@ class StableDiffusionModel:
             else:
                 pipe = pipe.to("cpu")
 
-            # Use faster scheduler (DPM-Solver++)
-            pipe.scheduler = DPMSolverMultistepScheduler.from_config(
-                pipe.scheduler.config
-            )
+            # Configure scheduler (only for SD models, FLUX uses its own)
+            if not is_flux:
+                # Use faster scheduler (DPM-Solver++)
+                # Some models (like Realistic Vision) have scheduler configs with incompatible
+                # combinations (e.g., final_sigmas_type=zero with algorithm_type=deis).
+                # We override these to ensure compatibility.
+                scheduler_config = dict(pipe.scheduler.config)
+                # Remove problematic config options that cause compatibility issues
+                scheduler_config.pop("final_sigmas_type", None)
+                scheduler_config.pop("algorithm_type", None)
+                pipe.scheduler = DPMSolverMultistepScheduler.from_config(scheduler_config)
 
             # Enable memory optimizations if using GPU
             if self.device in ["cuda", "mps"]:
-                pipe.enable_attention_slicing()
+                if not is_flux:
+                    pipe.enable_attention_slicing()
                 if self.device == "cuda":
                     # Enable xformers memory efficient attention if available
                     try:
@@ -162,24 +194,34 @@ class StableDiffusionModel:
         if model_id not in self.model_cache or "txt2img" not in self.model_cache[model_id]:
             self.load_model(model_id)
 
-        # Check if SDXL for appropriate defaults
+        # Check model type for appropriate defaults
+        is_flux = self._is_flux_model(model_id)
         is_sdxl = self._is_sdxl_model(model_id)
 
-        # Use defaults if not specified (SDXL works best at 1024x1024)
-        num_inference_steps = num_inference_steps or settings.default_steps
-        guidance_scale = guidance_scale or settings.default_guidance_scale
-
-        if is_sdxl:
-            # SDXL native resolution is 1024x1024
+        # Set defaults based on model type
+        if is_flux:
+            # FLUX schnell uses 4 steps and no guidance
+            num_inference_steps = num_inference_steps or 4
+            guidance_scale = guidance_scale if guidance_scale is not None else 0.0
             width = width or 1024
             height = height or 1024
+            # FLUX doesn't use negative prompts
+            negative_prompt = None
+        elif is_sdxl:
+            # SDXL native resolution is 1024x1024
+            num_inference_steps = num_inference_steps or settings.default_steps
+            guidance_scale = guidance_scale or settings.default_guidance_scale
+            width = width or 1024
+            height = height or 1024
+            if not negative_prompt:
+                negative_prompt = DEFAULT_NEGATIVE_PROMPT
         else:
+            num_inference_steps = num_inference_steps or settings.default_steps
+            guidance_scale = guidance_scale or settings.default_guidance_scale
             width = width or settings.default_width
             height = height or settings.default_height
-
-        # Use default negative prompt if none provided
-        if not negative_prompt:
-            negative_prompt = DEFAULT_NEGATIVE_PROMPT
+            if not negative_prompt:
+                negative_prompt = DEFAULT_NEGATIVE_PROMPT
 
         logger.info(
             f"Generating image: prompt='{prompt[:50]}...', "
@@ -209,17 +251,28 @@ class StableDiffusionModel:
                     logger.debug(f"Callback step {step} handled: {e}")
                 return callback_kwargs
 
-            # Generate image
-            result = pipe(
-                prompt=prompt,
-                negative_prompt=negative_prompt,
-                num_inference_steps=num_inference_steps,
-                guidance_scale=guidance_scale,
-                width=width,
-                height=height,
-                generator=generator,
-                callback_on_step_end=step_callback if progress_callback else None,
-            )
+            # Generate image - FLUX uses different parameters
+            if is_flux:
+                result = pipe(
+                    prompt=prompt,
+                    num_inference_steps=num_inference_steps,
+                    guidance_scale=guidance_scale,
+                    width=width,
+                    height=height,
+                    generator=generator,
+                    # FLUX doesn't support callback_on_step_end in the same way
+                )
+            else:
+                result = pipe(
+                    prompt=prompt,
+                    negative_prompt=negative_prompt,
+                    num_inference_steps=num_inference_steps,
+                    guidance_scale=guidance_scale,
+                    width=width,
+                    height=height,
+                    generator=generator,
+                    callback_on_step_end=step_callback if progress_callback else None,
+                )
 
             image = result.images[0]
             logger.info("Image generated successfully")
@@ -279,9 +332,11 @@ class StableDiffusionModel:
                 img2img_pipe = img2img_pipe.to("cpu")
 
             # Use same scheduler as txt2img
-            img2img_pipe.scheduler = DPMSolverMultistepScheduler.from_config(
-                img2img_pipe.scheduler.config
-            )
+            # Remove problematic config options for compatibility (same as txt2img)
+            scheduler_config = dict(img2img_pipe.scheduler.config)
+            scheduler_config.pop("final_sigmas_type", None)
+            scheduler_config.pop("algorithm_type", None)
+            img2img_pipe.scheduler = DPMSolverMultistepScheduler.from_config(scheduler_config)
 
             # Enable memory optimizations
             if self.device in ["cuda", "mps"]:

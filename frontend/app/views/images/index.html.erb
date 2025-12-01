@@ -75,9 +75,19 @@
             <p class="text-[10px] font-semibold uppercase tracking-wider mb-2" style="color: hsl(var(--muted-foreground));">Model</p>
             <div class="relative group">
               <select id="model_select" onchange="updateModel(this.value)" class="settings-select w-full px-3 py-2 text-sm rounded-lg border appearance-none cursor-pointer transition-colors" style="background-color: hsl(var(--background)); border-color: hsl(var(--border)); color: hsl(var(--foreground));">
-                <option value="sd-v1-5">Stable Diffusion v1.5</option>
-                <option value="openjourney">OpenJourney (Midjourney-style)</option>
-                <option value="sdxl">SDXL 1.0</option>
+                <optgroup label="Base Models">
+                  <option value="sd-v1-5">Stable Diffusion v1.5</option>
+                  <option value="openjourney">OpenJourney (Midjourney-style)</option>
+                  <option value="sdxl">SDXL 1.0</option>
+                </optgroup>
+                <optgroup label="Specialized Styles">
+                  <option value="realistic-vision">Realistic Vision v5.1</option>
+                  <option value="dreamshaper">DreamShaper 8</option>
+                  <option value="analog-diffusion">Analog Diffusion</option>
+                </optgroup>
+                <optgroup label="Next-Gen Models">
+                  <option value="flux-schnell">FLUX.1 Schnell</option>
+                </optgroup>
               </select>
               <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
@@ -984,7 +994,11 @@
   const modelDescriptions = {
     'sd-v1-5': 'Fast generation, good for quick iterations',
     'openjourney': 'Midjourney-style artistic renders, beautiful aesthetic',
-    'sdxl': 'Highest quality, best for final outputs (slower)'
+    'sdxl': 'Highest quality, best for final outputs (slower)',
+    'realistic-vision': 'Photorealistic portraits and natural scenes',
+    'dreamshaper': 'Fantasy art and stylized illustrations',
+    'analog-diffusion': 'Vintage film photography look (add "analog style" to prompt)',
+    'flux-schnell': 'State-of-art quality, excellent text rendering (requires 12GB+ RAM)'
   };
 
   function updateModel(value) {
