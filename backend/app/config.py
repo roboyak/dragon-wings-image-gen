@@ -94,6 +94,53 @@ MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
     },
 }
 
+# SD 1.5-based models that share LoRA compatibility
+SD15_COMPATIBLE_MODELS = ["sd-v1-5", "openjourney", "realistic-vision", "dreamshaper", "analog-diffusion"]
+SDXL_COMPATIBLE_MODELS = ["sdxl"]
+
+# Local LoRA storage directory (relative to backend root)
+LORA_LOCAL_DIR = "./loras"
+
+# Available LoRA adapters for style customization
+# Each LoRA can have either:
+#   - lora_id: HuggingFace repo ID (auto-downloads and caches)
+#   - local_path: Path to local .safetensors file (takes precedence if present)
+LORA_CONFIGS: Dict[str, Dict[str, Any]] = {
+    "watercolor": {
+        "lora_id": "SydigiAI/WaterColorStyle-loRA",  # HuggingFace fallback
+        "local_path": "./loras/watercolor.safetensors",  # Local file (preferred)
+        "name": "Watercolor Painting",
+        "description": "Soft, flowing watercolor aesthetic with transparent washes and organic edges",
+        "default_weight": 0.7,
+        "weight_range": {"min": 0.0, "max": 1.2},
+        "compatible_models": SD15_COMPATIBLE_MODELS,
+        "trigger_words": ["Sora WaterColor", "watercolor", "watercolor painting"],
+        "category": "artistic",
+    },
+    "anime-ghibli": {
+        "lora_id": "artificialguybr/studioghibli-redmond-1-5v-studio-ghibli-lora-for-liberteredmond-sd-1-5",
+        "local_path": "./loras/anime-ghibli.safetensors",  # Local file (preferred)
+        "name": "Studio Ghibli Style",
+        "description": "Studio Ghibli and anime aesthetic with soft colors, detailed backgrounds, and whimsical feel",
+        "default_weight": 0.75,
+        "weight_range": {"min": 0.0, "max": 1.2},
+        "compatible_models": SD15_COMPATIBLE_MODELS,
+        "trigger_words": ["Studio Ghibli", "StdGBRedmAF", "ghibli style", "anime"],
+        "category": "stylized",
+    },
+    "thangka": {
+        "lora_id": "Oedon42/thangka-lora-xl",  # HuggingFace - SDXL only
+        "local_path": None,  # Set to "./loras/thangka.safetensors" for local
+        "name": "Tibetan Thangka Art",
+        "description": "Tibetan Buddhist sacred art with intricate mandalas, deities, and spiritual symbolism (SDXL only)",
+        "default_weight": 0.8,
+        "weight_range": {"min": 0.0, "max": 1.2},
+        "compatible_models": SDXL_COMPATIBLE_MODELS,  # SDXL only - not SD 1.5
+        "trigger_words": ["thangka", "Avalokiteshvara", "bodhisattva", "tibetan art", "mandala"],
+        "category": "artistic",
+    },
+}
+
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
@@ -141,6 +188,52 @@ class Settings(BaseSettings):
         """Get Hugging Face model ID from model key."""
         config = self.get_model_config(model_key)
         return config["model_id"]
+
+    def get_lora_config(self, lora_key: str) -> Dict[str, Any]:
+        """Get LoRA configuration by key.
+
+        Args:
+            lora_key: The LoRA identifier (e.g., 'thangka', 'watercolor')
+
+        Returns:
+            Dictionary containing LoRA configuration
+
+        Raises:
+            ValueError: If lora_key is not found in LORA_CONFIGS
+        """
+        if lora_key not in LORA_CONFIGS:
+            raise ValueError(f"Unknown LoRA key: {lora_key}. Available: {', '.join(LORA_CONFIGS.keys())}")
+        return LORA_CONFIGS[lora_key]
+
+    def get_compatible_loras(self, model_key: str) -> List[str]:
+        """Get list of LoRA keys compatible with a given model.
+
+        Args:
+            model_key: The model identifier (e.g., 'sd-v1-5', 'sdxl')
+
+        Returns:
+            List of LoRA keys that are compatible with the model
+        """
+        compatible = []
+        for lora_key, lora_config in LORA_CONFIGS.items():
+            if model_key in lora_config.get("compatible_models", []):
+                compatible.append(lora_key)
+        return compatible
+
+    def is_lora_compatible(self, lora_key: str, model_key: str) -> bool:
+        """Check if a LoRA is compatible with a specific model.
+
+        Args:
+            lora_key: The LoRA identifier
+            model_key: The model identifier
+
+        Returns:
+            True if the LoRA can be used with the model, False otherwise
+        """
+        if lora_key not in LORA_CONFIGS:
+            return False
+        lora_config = LORA_CONFIGS[lora_key]
+        return model_key in lora_config.get("compatible_models", [])
 
     class Config:
         env_file = ".env"

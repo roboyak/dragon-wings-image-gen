@@ -96,6 +96,98 @@
             <p id="model_description" class="text-[11px] mt-1.5" style="color: hsl(var(--muted-foreground));">Fast generation, good for quick iterations</p>
           </div>
 
+          <!-- STYLE Section (LoRA Styles) -->
+          <div class="settings-section">
+            <div class="flex items-center gap-1 mb-2">
+              <p class="text-[10px] font-semibold uppercase tracking-wider" style="color: hsl(var(--muted-foreground));">Style</p>
+              <span class="tooltip-trigger cursor-help" title="LoRA adapters add specialized artistic styles">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M12 16v-4m0-4h.01"/></svg>
+              </span>
+            </div>
+
+            <!-- Style Cards Grid (2x2) -->
+            <div class="grid grid-cols-2 gap-2">
+              <!-- None Card -->
+              <button type="button" onclick="selectLoraStyle('')" data-lora-key="" class="lora-card selected flex flex-col items-center gap-1.5 p-2.5 rounded-lg border transition-all cursor-pointer" style="border-color: hsl(var(--primary)); background-color: transparent;">
+                <div class="w-8 h-8 rounded-md flex items-center justify-center" style="background-color: hsl(var(--muted));">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </div>
+                <div class="text-center">
+                  <p class="text-[11px] font-semibold" style="color: hsl(var(--foreground));">None</p>
+                  <p class="text-[9px] line-clamp-1" style="color: hsl(var(--muted-foreground));">Default style</p>
+                </div>
+                <div class="checkmark-badge absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style="background-color: hsl(var(--primary)); display: flex;">
+                  <svg class="w-2.5 h-2.5" fill="none" stroke="white" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                </div>
+              </button>
+
+              <!-- Thangka Card -->
+              <button type="button" onclick="selectLoraStyle('thangka')" data-lora-key="thangka" class="lora-card flex flex-col items-center gap-1.5 p-2.5 rounded-lg border transition-all cursor-pointer" style="border-color: hsl(var(--border)); background-color: transparent;">
+                <div class="w-8 h-8 rounded-md flex items-center justify-center" style="background-color: hsl(var(--muted));">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+                  </svg>
+                </div>
+                <div class="text-center">
+                  <p class="text-[11px] font-semibold" style="color: hsl(var(--foreground));">Thangka</p>
+                  <p class="text-[9px] line-clamp-1" style="color: hsl(var(--muted-foreground));">Tibetan sacred art</p>
+                </div>
+                <div class="checkmark-badge absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style="background-color: hsl(var(--primary)); display: none;">
+                  <svg class="w-2.5 h-2.5" fill="none" stroke="white" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                </div>
+              </button>
+
+              <!-- Watercolor Card -->
+              <button type="button" onclick="selectLoraStyle('watercolor')" data-lora-key="watercolor" class="lora-card flex flex-col items-center gap-1.5 p-2.5 rounded-lg border transition-all cursor-pointer" style="border-color: hsl(var(--border)); background-color: transparent;">
+                <div class="w-8 h-8 rounded-md flex items-center justify-center" style="background-color: hsl(var(--muted));">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+                  </svg>
+                </div>
+                <div class="text-center">
+                  <p class="text-[11px] font-semibold" style="color: hsl(var(--foreground));">Watercolor</p>
+                  <p class="text-[9px] line-clamp-1" style="color: hsl(var(--muted-foreground));">Soft painted look</p>
+                </div>
+                <div class="checkmark-badge absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style="background-color: hsl(var(--primary)); display: none;">
+                  <svg class="w-2.5 h-2.5" fill="none" stroke="white" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                </div>
+              </button>
+
+              <!-- Anime/Ghibli Card -->
+              <button type="button" onclick="selectLoraStyle('anime-ghibli')" data-lora-key="anime-ghibli" class="lora-card flex flex-col items-center gap-1.5 p-2.5 rounded-lg border transition-all cursor-pointer" style="border-color: hsl(var(--border)); background-color: transparent;">
+                <div class="w-8 h-8 rounded-md flex items-center justify-center" style="background-color: hsl(var(--muted));">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                  </svg>
+                </div>
+                <div class="text-center">
+                  <p class="text-[11px] font-semibold" style="color: hsl(var(--foreground));">Anime</p>
+                  <p class="text-[9px] line-clamp-1" style="color: hsl(var(--muted-foreground));">Ghibli animation</p>
+                </div>
+                <div class="checkmark-badge absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style="background-color: hsl(var(--primary)); display: none;">
+                  <svg class="w-2.5 h-2.5" fill="none" stroke="white" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                </div>
+              </button>
+            </div>
+
+            <!-- Active LoRAs with Weight Sliders -->
+            <div id="active-loras-container" class="mt-3 space-y-2 hidden">
+              <p class="text-[10px] font-medium uppercase tracking-wider" style="color: hsl(var(--muted-foreground));">Active Styles</p>
+              <div id="active-loras-list" class="space-y-2">
+                <!-- Dynamically populated by JS -->
+              </div>
+              <p id="lora-weight-warning" class="text-[10px] hidden" style="color: hsl(var(--warning));">
+                <svg class="w-3 h-3 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                High combined strength may cause artifacts
+              </p>
+            </div>
+
+            <!-- Hidden inputs for LoRA data (dynamically managed by JS) -->
+            <div id="lora-hidden-inputs"></div>
+          </div>
+
           <!-- DIMENSIONS Section -->
           <div class="settings-section">
             <p class="text-[10px] font-semibold uppercase tracking-wider mb-2" style="color: hsl(var(--muted-foreground));">Dimensions</p>
@@ -825,6 +917,30 @@
     border-color: hsl(var(--primary)) !important;
     box-shadow: 0 0 0 2px hsl(var(--primary) / 0.3);
   }
+
+  /* ============================================
+     LORA STYLE CARDS
+     ============================================ */
+  .lora-card {
+    position: relative;
+  }
+  .lora-card:hover {
+    border-color: hsl(var(--primary) / 0.5) !important;
+    background-color: hsl(var(--primary) / 0.05) !important;
+  }
+  .lora-card.selected {
+    border-color: hsl(var(--primary)) !important;
+  }
+  .lora-card.incompatible {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+  .lora-card .checkmark-badge {
+    display: none;
+  }
+  .lora-card.selected .checkmark-badge {
+    display: flex !important;
+  }
 </style>
 
 <script>
@@ -1004,6 +1120,177 @@
   function updateModel(value) {
     document.getElementById('model_key_input').value = value;
     document.getElementById('model_description').textContent = modelDescriptions[value] || '';
+    // Update LoRA compatibility when model changes
+    updateLoraCompatibility(value);
+  }
+
+  // ============================================
+  // LORA STYLE SELECTION (Multi-Select)
+  // ============================================
+
+  // Models compatible with LoRA (SD 1.5 based)
+  const loraCompatibleModels = ['sd-v1-5', 'openjourney', 'realistic-vision', 'dreamshaper', 'analog-diffusion'];
+
+  // LoRA display names and default weights
+  const loraInfo = {
+    'thangka': { name: 'Thangka', defaultWeight: 0.8 },
+    'watercolor': { name: 'Watercolor', defaultWeight: 0.7 },
+    'anime-ghibli': { name: 'Anime', defaultWeight: 0.75 }
+  };
+
+  // State: array of selected LoRAs with weights
+  let selectedLoras = [];
+  const MAX_LORAS = 3;
+
+  function selectLoraStyle(loraKey) {
+    // If "None" selected, clear all LoRAs
+    if (loraKey === '') {
+      selectedLoras = [];
+      updateLoraUI();
+      return;
+    }
+
+    // Check if already selected - toggle off
+    const existingIndex = selectedLoras.findIndex(l => l.key === loraKey);
+    if (existingIndex !== -1) {
+      selectedLoras.splice(existingIndex, 1);
+      updateLoraUI();
+      return;
+    }
+
+    // Check max limit
+    if (selectedLoras.length >= MAX_LORAS) {
+      if (typeof showWarningToast === 'function') {
+        showWarningToast('Limit Reached', `Maximum ${MAX_LORAS} styles can be combined`);
+      }
+      return;
+    }
+
+    // Add new LoRA
+    const info = loraInfo[loraKey] || { defaultWeight: 0.8 };
+    selectedLoras.push({ key: loraKey, weight: info.defaultWeight });
+    updateLoraUI();
+  }
+
+  function updateLoraWeight(loraKey, weight) {
+    const lora = selectedLoras.find(l => l.key === loraKey);
+    if (lora) {
+      lora.weight = parseFloat(weight);
+      updateLoraHiddenInputs();
+      updateWeightWarning();
+    }
+  }
+
+  function removeLora(loraKey) {
+    selectedLoras = selectedLoras.filter(l => l.key !== loraKey);
+    updateLoraUI();
+  }
+
+  function updateLoraUI() {
+    // Update card visual states
+    document.querySelectorAll('.lora-card').forEach(card => {
+      const cardKey = card.dataset.loraKey;
+      const checkmark = card.querySelector('.checkmark-badge');
+      const isSelected = cardKey === '' ? selectedLoras.length === 0 : selectedLoras.some(l => l.key === cardKey);
+
+      if (isSelected) {
+        card.classList.add('selected');
+        card.style.borderColor = 'hsl(var(--primary))';
+        if (checkmark) checkmark.style.display = 'flex';
+      } else {
+        card.classList.remove('selected');
+        card.style.borderColor = 'hsl(var(--border))';
+        if (checkmark) checkmark.style.display = 'none';
+      }
+    });
+
+    // Update active LoRAs container
+    const container = document.getElementById('active-loras-container');
+    const list = document.getElementById('active-loras-list');
+
+    if (selectedLoras.length === 0) {
+      container.classList.add('hidden');
+      list.innerHTML = '';
+    } else {
+      container.classList.remove('hidden');
+      list.innerHTML = selectedLoras.map(lora => {
+        const info = loraInfo[lora.key] || { name: lora.key };
+        return `
+          <div class="lora-chip flex items-center gap-2 p-2 rounded-lg" style="background-color: hsl(var(--primary) / 0.1); border: 1px solid hsl(var(--primary) / 0.3);">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[11px] font-medium truncate" style="color: hsl(var(--foreground));">${info.name}</span>
+                <button type="button" onclick="removeLora('${lora.key}')" class="p-0.5 rounded hover:bg-white/10" title="Remove style">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="range" min="0" max="1.2" step="0.05" value="${lora.weight}"
+                       onchange="updateLoraWeight('${lora.key}', this.value)"
+                       oninput="this.nextElementSibling.textContent = this.value"
+                       class="flex-1 h-1.5 rounded-full appearance-none cursor-pointer"
+                       style="background: linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${(lora.weight / 1.2) * 100}%, hsl(var(--muted)) ${(lora.weight / 1.2) * 100}%, hsl(var(--muted)) 100%);">
+                <span class="text-[10px] font-mono w-6 text-right" style="color: hsl(var(--primary));">${lora.weight}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    updateLoraHiddenInputs();
+    updateWeightWarning();
+
+    // Also update the old single lora_key_input for backwards compatibility
+    document.getElementById('lora_key_input').value = selectedLoras.length === 1 ? selectedLoras[0].key : '';
+  }
+
+  function updateLoraHiddenInputs() {
+    const container = document.getElementById('lora-hidden-inputs');
+    container.innerHTML = selectedLoras.map((lora, idx) => `
+      <input type="hidden" name="loras[][key]" value="${lora.key}">
+      <input type="hidden" name="loras[][weight]" value="${lora.weight}">
+    `).join('');
+  }
+
+  function updateWeightWarning() {
+    const warning = document.getElementById('lora-weight-warning');
+    const totalWeight = selectedLoras.reduce((sum, l) => sum + l.weight, 0);
+    if (totalWeight > 1.5) {
+      warning.classList.remove('hidden');
+    } else {
+      warning.classList.add('hidden');
+    }
+  }
+
+  function updateLoraCompatibility(modelKey) {
+    const isCompatible = loraCompatibleModels.includes(modelKey);
+    const loraCards = document.querySelectorAll('.lora-card');
+
+    loraCards.forEach(card => {
+      const loraKey = card.dataset.loraKey;
+      // Skip the "None" card (empty key)
+      if (loraKey === '') return;
+
+      if (isCompatible) {
+        // Model supports LoRAs - enable cards
+        card.classList.remove('incompatible');
+        card.disabled = false;
+      } else {
+        // Model doesn't support LoRAs - disable cards
+        card.classList.add('incompatible');
+        card.disabled = true;
+      }
+    });
+
+    // If switching to incompatible model, clear selected LoRAs
+    if (!isCompatible && selectedLoras.length > 0) {
+      selectedLoras = [];
+      updateLoraUI();
+      if (typeof showInfoToast === 'function') {
+        showInfoToast('Styles Cleared', 'Selected model does not support style adapters');
+      }
+    }
   }
 
   function setAspectRatio(ratio, width, height) {

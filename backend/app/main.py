@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
-from .config import settings, MODEL_CONFIGS
+from .config import settings, MODEL_CONFIGS, LORA_CONFIGS
 from .models import sd_model
 from .schemas import (
     GenerateRequest,
@@ -21,6 +21,7 @@ from .schemas import (
     HealthResponse,
     ErrorResponse,
     Img2ImgRequest,
+    LoraSpec,
 )
 
 # Configure logging
@@ -85,10 +86,13 @@ def generate_image_task(
     width: int,
     height: int,
     seed: int | None,
+    lora_specs: list | None = None,
 ):
     """Background task for image generation."""
     try:
         logger.info(f"Starting generation for job {job_id} with model {model_key}")
+        if lora_specs:
+            logger.info(f"  LoRAs: {lora_specs}")
         jobs[job_id]["status"] = "processing"
         jobs[job_id]["progress_percent"] = 0
 
@@ -113,6 +117,7 @@ def generate_image_task(
             height=height,
             seed=seed,
             progress_callback=update_progress,
+            lora_specs=lora_specs,
         )
 
         generation_time = time.time() - start_time
@@ -260,6 +265,28 @@ async def generate_image(
             detail="Width and height must be multiples of 8",
         )
 
+    # Validate LoRA compatibility and convert to lora_specs format
+    lora_specs = None
+    if request.loras:
+        lora_specs = []
+        for lora in request.loras:
+            # Check if LoRA exists
+            if not settings.is_lora_compatible(lora.key, request.model_key):
+                compatible_loras = settings.get_compatible_loras(request.model_key)
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"LoRA '{lora.key}' is not compatible with model '{request.model_key}'. Compatible LoRAs: {', '.join(compatible_loras) if compatible_loras else 'none'}",
+                )
+
+            # Get LoRA config and use weight or default
+            lora_config = settings.get_lora_config(lora.key)
+            weight = lora.weight if lora.weight is not None else lora_config["default_weight"]
+
+            lora_specs.append({
+                "key": lora.key,
+                "weight": weight,
+            })
+
     # Generate unique job ID
     job_id = str(uuid.uuid4())
 
@@ -283,6 +310,7 @@ async def generate_image(
         width=request.width,
         height=request.height,
         seed=request.seed,
+        lora_specs=lora_specs,
     )
 
     logger.info(f"Job {job_id} queued: '{request.prompt[:50]}...' (model: {request.model_key})")
@@ -399,6 +427,64 @@ async def get_status(job_id: str):
         generation_time=job.get("generation_time"),
         progress_percent=job.get("progress_percent"),
     )
+
+
+@app.get("/api/loras", tags=["LoRA"])
+async def list_loras(model_key: str | None = None):
+    """
+    List available LoRA adapters.
+
+    Args:
+        model_key: Optional model key to filter LoRAs by compatibility
+
+    Returns:
+        List of LoRA configurations, optionally filtered by model compatibility
+    """
+    loras_with_keys = {}
+
+    for key, config in LORA_CONFIGS.items():
+        # Filter by model compatibility if model_key is provided
+        if model_key is not None:
+            if not settings.is_lora_compatible(key, model_key):
+                continue
+
+        loras_with_keys[key] = {
+            "key": key,
+            **config
+        }
+
+    return {
+        "filter_model": model_key,
+        "count": len(loras_with_keys),
+        "loras": loras_with_keys,
+    }
+
+
+@app.get("/api/loras/{lora_key}", tags=["LoRA"])
+async def get_lora(lora_key: str):
+    """
+    Get details for a specific LoRA adapter.
+
+    Args:
+        lora_key: The LoRA identifier (e.g., 'thangka', 'watercolor')
+
+    Returns:
+        LoRA configuration details
+
+    Raises:
+        404: If LoRA not found
+    """
+    if lora_key not in LORA_CONFIGS:
+        raise HTTPException(
+            status_code=404,
+            detail=f"LoRA '{lora_key}' not found. Available: {', '.join(LORA_CONFIGS.keys())}",
+        )
+
+    config = LORA_CONFIGS[lora_key]
+    return {
+        "key": lora_key,
+        **config
+    }
 
 
 @app.get("/api/models", tags=["General"])
