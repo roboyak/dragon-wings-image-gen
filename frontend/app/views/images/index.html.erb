@@ -54,8 +54,8 @@
     </div>
 
     <!-- Enhanced Settings Panel -->
-    <aside id="settings-panel" class="w-72 border-l flex-shrink-0 overflow-y-auto hidden" style="background-color: hsl(var(--card)); border-color: hsl(var(--border));">
-      <div class="p-4">
+    <aside id="settings-panel" class="w-72 border-l flex-shrink-0 overflow-y-auto hidden" style="background-color: hsl(var(--card)); border-color: hsl(var(--border)); max-height: calc(100vh - 140px);">
+      <div class="p-4 pb-8">
         <!-- Header -->
         <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color: hsl(var(--border));">
           <div class="flex items-center gap-2">
@@ -191,6 +191,26 @@
             </button>
 
             <div id="advanced-settings" class="space-y-3 hidden">
+              <!-- Quality Preset -->
+              <div>
+                <label class="flex items-center gap-1 text-xs mb-1.5" style="color: hsl(var(--muted-foreground));">
+                  Quality Preset
+                  <span class="tooltip-trigger cursor-help" title="Pre-configured negative prompts for different use cases">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M12 16v-4m0-4h.01"/></svg>
+                  </span>
+                </label>
+                <select id="quality_preset_field"
+                        onchange="applyQualityPreset(this.value)"
+                        class="w-full px-3 py-2 text-sm rounded-lg border transition-colors focus:outline-none cursor-pointer"
+                        style="background-color: hsl(var(--background)); border-color: hsl(var(--border)); color: hsl(var(--foreground));">
+                  <option value="default">Standard (Server Default)</option>
+                  <option value="high_quality">High Quality</option>
+                  <option value="photorealistic">Photorealistic</option>
+                  <option value="artistic">Artistic/Stylized</option>
+                  <option value="custom">Custom (edit below)</option>
+                </select>
+              </div>
+
               <!-- Negative Prompt -->
               <div>
                 <label class="flex items-center gap-1 text-xs mb-1.5" style="color: hsl(var(--muted-foreground));">
@@ -200,9 +220,9 @@
                   </span>
                 </label>
                 <textarea id="negative_prompt_field"
-                          onchange="document.getElementById('negative_prompt_input').value = this.value"
+                          onchange="document.getElementById('negative_prompt_input').value = this.value; document.getElementById('quality_preset_field').value = 'custom';"
                           rows="2"
-                          placeholder="blurry, low quality, distorted..."
+                          placeholder="Leave empty for server default, or customize..."
                           class="w-full px-3 py-2 text-sm rounded-lg border resize-none transition-colors focus:outline-none"
                           style="background-color: hsl(var(--background)); border-color: hsl(var(--border)); color: hsl(var(--foreground));"></textarea>
               </div>
@@ -1037,6 +1057,29 @@
     const seed = Math.floor(Math.random() * 2147483647);
     document.getElementById('seed_field').value = seed;
     document.getElementById('seed_input').value = seed;
+  }
+
+  // Quality preset negative prompts
+  const QUALITY_PRESETS = {
+    default: '', // Empty = server will use its smart default
+    high_quality: 'lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, deformed, disfigured, mutation, mutated, ugly, duplicate, morbid, mutilated, out of frame, extra limbs, bad proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck, poorly drawn hands, poorly drawn face',
+    photorealistic: 'cartoon, anime, illustration, painting, drawing, art, sketch, cgi, 3d render, lowres, bad anatomy, bad hands, text, error, cropped, worst quality, low quality, jpeg artifacts, signature, watermark, blurry, deformed, disfigured, ugly, duplicate',
+    artistic: 'photograph, photo, realistic, photorealistic, hyperrealistic, lowres, bad anatomy, text, error, cropped, worst quality, low quality, jpeg artifacts, signature, watermark, blurry, ugly',
+    custom: null // Custom = don't change the field
+  };
+
+  function applyQualityPreset(preset) {
+    const negativeField = document.getElementById('negative_prompt_field');
+    const negativeInput = document.getElementById('negative_prompt_input');
+
+    if (preset === 'custom') {
+      // Don't change anything, let user edit
+      return;
+    }
+
+    const value = QUALITY_PRESETS[preset] || '';
+    negativeField.value = value;
+    negativeInput.value = value;
   }
 
   function handleFileSelect(event) {
