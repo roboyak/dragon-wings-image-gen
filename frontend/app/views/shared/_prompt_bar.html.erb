@@ -121,53 +121,105 @@
       <input type="hidden" name="strength" id="strength_input" value="0.3">
     <% end %>
 
-    <%# Prompt Tips - Collapsible section %>
+    <%# Prompt Tips & Quick Tags - Inline dropdowns (SD Web style) %>
     <div class="max-w-3xl mx-auto mt-2">
-      <button type="button" onclick="togglePromptTips()" class="flex items-center gap-1.5 text-xs transition-colors hover:opacity-80" style="color: hsl(var(--muted-foreground));" aria-expanded="false" aria-controls="prompt-tips">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--primary));">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
-        </svg>
-        <span>Prompt Tips</span>
-        <svg id="tips-chevron" class="w-3 h-3 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-        </svg>
-      </button>
-
-      <div id="prompt-tips" class="hidden mt-3 p-3 rounded-lg border text-xs" style="background-color: hsl(var(--muted) / 0.3); border-color: hsl(var(--border));">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div class="flex items-start gap-2">
-            <span class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style="background-color: hsl(var(--primary) / 0.2); color: hsl(var(--primary));">1</span>
-            <div>
-              <p class="font-medium" style="color: hsl(var(--foreground));">Be specific</p>
-              <p style="color: hsl(var(--muted-foreground));">"golden retriever puppy" beats "dog"</p>
+      <div class="flex items-center gap-3">
+        <%# Tips dropdown - left side %>
+        <div class="tag-dropdown relative">
+          <button type="button" onclick="toggleTagDropdown('tips')" class="tag-dropdown-btn flex items-center gap-1.5 px-2 py-1 text-xs rounded-md border transition-colors" style="background-color: hsl(var(--muted)); border-color: hsl(var(--border)); color: hsl(var(--foreground));">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--primary));">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+            </svg>
+            <span>Tips</span>
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+          </button>
+          <div id="dropdown-tips" class="tag-dropdown-menu hidden absolute top-full left-0 mt-1 p-3 rounded-lg border shadow-lg z-50" style="background-color: hsl(var(--card)); border-color: hsl(var(--border)); min-width: 408px;">
+            <div class="space-y-1.5 text-xs">
+              <div class="flex items-center gap-2 py-1">
+                <span class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style="background-color: hsl(var(--primary) / 0.2); color: hsl(var(--primary));">1</span>
+                <span style="color: hsl(var(--foreground));"><strong>Be specific</strong> — "golden retriever puppy" beats "dog"</span>
+              </div>
+              <div class="flex items-center gap-2 py-1">
+                <span class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style="background-color: hsl(var(--primary) / 0.2); color: hsl(var(--primary));">2</span>
+                <span style="color: hsl(var(--foreground));"><strong>Include style</strong> — "oil painting", "photograph", "3D render"</span>
+              </div>
+              <div class="flex items-center gap-2 py-1">
+                <span class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style="background-color: hsl(var(--primary) / 0.2); color: hsl(var(--primary));">3</span>
+                <span style="color: hsl(var(--foreground));"><strong>Add lighting</strong> — "golden hour", "studio lighting", "neon glow"</span>
+              </div>
+              <div class="flex items-center gap-2 py-1">
+                <span class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style="background-color: hsl(var(--primary) / 0.2); color: hsl(var(--primary));">4</span>
+                <span style="color: hsl(var(--foreground));"><strong>Specify camera</strong> — "close-up", "wide angle", "aerial view"</span>
+              </div>
             </div>
-          </div>
-          <div class="flex items-start gap-2">
-            <span class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style="background-color: hsl(var(--primary) / 0.2); color: hsl(var(--primary));">2</span>
-            <div>
-              <p class="font-medium" style="color: hsl(var(--foreground));">Include style</p>
-              <p style="color: hsl(var(--muted-foreground));">"oil painting", "photograph", "3D render"</p>
-            </div>
-          </div>
-          <div class="flex items-start gap-2">
-            <span class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style="background-color: hsl(var(--primary) / 0.2); color: hsl(var(--primary));">3</span>
-            <div>
-              <p class="font-medium" style="color: hsl(var(--foreground));">Add lighting</p>
-              <p style="color: hsl(var(--muted-foreground));">"golden hour", "studio lighting", "neon glow"</p>
-            </div>
-          </div>
-          <div class="flex items-start gap-2">
-            <span class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style="background-color: hsl(var(--primary) / 0.2); color: hsl(var(--primary));">4</span>
-            <div>
-              <p class="font-medium" style="color: hsl(var(--foreground));">Specify camera</p>
-              <p style="color: hsl(var(--muted-foreground));">"close-up", "wide angle", "aerial view"</p>
+            <div class="mt-2 pt-2 border-t text-[11px]" style="border-color: hsl(var(--border)); color: hsl(var(--muted-foreground));">
+              <strong style="color: hsl(var(--primary));">Pro tip:</strong> Important elements first — CLIP weights left-to-right.
             </div>
           </div>
         </div>
-        <p class="mt-3 pt-2 border-t" style="color: hsl(var(--muted-foreground)); border-color: hsl(var(--border));">
-          <strong style="color: hsl(var(--foreground));">Pro tip:</strong> Put the most important elements first. CLIP processes tokens left-to-right with decreasing weight.
-        </p>
+
+        <%# Inline tag dropdowns - right side %>
+        <div class="flex items-center gap-1.5 ml-auto">
+          <%# Lighting dropdown %>
+          <div class="tag-dropdown relative">
+            <button type="button" onclick="toggleTagDropdown('lighting')" class="tag-dropdown-btn flex items-center gap-1 px-2 py-1 text-xs rounded-md border transition-colors" style="background-color: hsl(var(--muted)); border-color: hsl(var(--border)); color: hsl(var(--foreground));">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+              <span>Lighting</span>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+            <div id="dropdown-lighting" class="tag-dropdown-menu hidden absolute top-full right-0 mt-1 p-2 rounded-lg border shadow-lg z-50" style="background-color: hsl(var(--card)); border-color: hsl(var(--border)); min-width: 160px;">
+              <button type="button" onclick="addSuggestion('golden hour')" data-term="golden hour" class="suggestion-chip block w-full px-3 py-2 text-xs rounded hover:bg-white/10 transition-colors whitespace-nowrap" style="color: hsl(var(--foreground)); text-align: left;">golden hour</button>
+              <button type="button" onclick="addSuggestion('studio lighting')" data-term="studio lighting" class="suggestion-chip block w-full px-3 py-2 text-xs rounded hover:bg-white/10 transition-colors whitespace-nowrap" style="color: hsl(var(--foreground)); text-align: left;">studio lighting</button>
+              <button type="button" onclick="addSuggestion('dramatic shadows')" data-term="dramatic shadows" class="suggestion-chip block w-full px-3 py-2 text-xs rounded hover:bg-white/10 transition-colors whitespace-nowrap" style="color: hsl(var(--foreground)); text-align: left;">dramatic shadows</button>
+              <button type="button" onclick="addSuggestion('neon glow')" data-term="neon glow" class="suggestion-chip block w-full px-3 py-2 text-xs rounded hover:bg-white/10 transition-colors whitespace-nowrap" style="color: hsl(var(--foreground)); text-align: left;">neon glow</button>
+            </div>
+          </div>
+
+          <%# Style dropdown %>
+          <div class="tag-dropdown relative">
+            <button type="button" onclick="toggleTagDropdown('style')" class="tag-dropdown-btn flex items-center gap-1 px-2 py-1 text-xs rounded-md border transition-colors" style="background-color: hsl(var(--muted)); border-color: hsl(var(--border)); color: hsl(var(--foreground));">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
+              <span>Style</span>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+            <div id="dropdown-style" class="tag-dropdown-menu hidden absolute top-full right-0 mt-1 p-2 rounded-lg border shadow-lg z-50" style="background-color: hsl(var(--card)); border-color: hsl(var(--border)); min-width: 160px;">
+              <button type="button" onclick="addSuggestion('photorealistic')" data-term="photorealistic" class="suggestion-chip block w-full px-3 py-2 text-xs rounded hover:bg-white/10 transition-colors whitespace-nowrap" style="color: hsl(var(--foreground)); text-align: left;">photorealistic</button>
+              <button type="button" onclick="addSuggestion('oil painting')" data-term="oil painting" class="suggestion-chip block w-full px-3 py-2 text-xs rounded hover:bg-white/10 transition-colors whitespace-nowrap" style="color: hsl(var(--foreground)); text-align: left;">oil painting</button>
+              <button type="button" onclick="addSuggestion('watercolor')" data-term="watercolor" class="suggestion-chip block w-full px-3 py-2 text-xs rounded hover:bg-white/10 transition-colors whitespace-nowrap" style="color: hsl(var(--foreground)); text-align: left;">watercolor</button>
+              <button type="button" onclick="addSuggestion('digital art')" data-term="digital art" class="suggestion-chip block w-full px-3 py-2 text-xs rounded hover:bg-white/10 transition-colors whitespace-nowrap" style="color: hsl(var(--foreground)); text-align: left;">digital art</button>
+            </div>
+          </div>
+
+          <%# Quality dropdown %>
+          <div class="tag-dropdown relative">
+            <button type="button" onclick="toggleTagDropdown('quality')" class="tag-dropdown-btn flex items-center gap-1 px-2 py-1 text-xs rounded-md border transition-colors" style="background-color: hsl(var(--muted)); border-color: hsl(var(--border)); color: hsl(var(--foreground));">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>
+              <span>Quality</span>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+            <div id="dropdown-quality" class="tag-dropdown-menu hidden absolute top-full right-0 mt-1 p-2 rounded-lg border shadow-lg z-50" style="background-color: hsl(var(--card)); border-color: hsl(var(--border)); min-width: 160px;">
+              <button type="button" onclick="addSuggestion('highly detailed')" data-term="highly detailed" class="suggestion-chip block w-full px-3 py-2 text-xs rounded hover:bg-white/10 transition-colors whitespace-nowrap" style="color: hsl(var(--foreground)); text-align: left;">highly detailed</button>
+              <button type="button" onclick="addSuggestion('8k resolution')" data-term="8k resolution" class="suggestion-chip block w-full px-3 py-2 text-xs rounded hover:bg-white/10 transition-colors whitespace-nowrap" style="color: hsl(var(--foreground)); text-align: left;">8k resolution</button>
+              <button type="button" onclick="addSuggestion('sharp focus')" data-term="sharp focus" class="suggestion-chip block w-full px-3 py-2 text-xs rounded hover:bg-white/10 transition-colors whitespace-nowrap" style="color: hsl(var(--foreground)); text-align: left;">sharp focus</button>
+            </div>
+          </div>
+
+          <%# Camera dropdown %>
+          <div class="tag-dropdown relative">
+            <button type="button" onclick="toggleTagDropdown('camera')" class="tag-dropdown-btn flex items-center gap-1 px-2 py-1 text-xs rounded-md border transition-colors" style="background-color: hsl(var(--muted)); border-color: hsl(var(--border)); color: hsl(var(--foreground));">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+              <span>Camera</span>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+            <div id="dropdown-camera" class="tag-dropdown-menu hidden absolute top-full right-0 mt-1 p-2 rounded-lg border shadow-lg z-50" style="background-color: hsl(var(--card)); border-color: hsl(var(--border)); min-width: 160px;">
+              <button type="button" onclick="addSuggestion('close-up')" data-term="close-up" class="suggestion-chip block w-full px-3 py-2 text-xs rounded hover:bg-white/10 transition-colors whitespace-nowrap" style="color: hsl(var(--foreground)); text-align: left;">close-up</button>
+              <button type="button" onclick="addSuggestion('wide angle')" data-term="wide angle" class="suggestion-chip block w-full px-3 py-2 text-xs rounded hover:bg-white/10 transition-colors whitespace-nowrap" style="color: hsl(var(--foreground)); text-align: left;">wide angle</button>
+              <button type="button" onclick="addSuggestion('aerial view')" data-term="aerial view" class="suggestion-chip block w-full px-3 py-2 text-xs rounded hover:bg-white/10 transition-colors whitespace-nowrap" style="color: hsl(var(--foreground)); text-align: left;">aerial view</button>
+            </div>
+          </div>
+        </div>
       </div>
+
     </div>
   </div>
 </header>
@@ -209,18 +261,24 @@
   .token-counter-yellow { color: hsl(45 93% 47%) !important; }
   .token-counter-red { color: hsl(0 84% 60%) !important; }
 
-  /* Tips section animation */
-  #prompt-tips {
-    animation: slideDown 0.2s ease-out;
+  /* Tag dropdown styles */
+  .tag-dropdown-btn:hover {
+    filter: brightness(1.1);
+    border-color: hsl(var(--primary) / 0.5) !important;
   }
 
-  @keyframes slideDown {
-    from { opacity: 0; transform: translateY(-8px); }
+  .tag-dropdown-btn.active {
+    border-color: hsl(var(--primary)) !important;
+    background-color: hsl(var(--primary) / 0.1) !important;
+  }
+
+  .tag-dropdown-menu {
+    animation: dropdownSlide 0.15s ease-out;
+  }
+
+  @keyframes dropdownSlide {
+    from { opacity: 0; transform: translateY(-4px); }
     to { opacity: 1; transform: translateY(0); }
-  }
-
-  #tips-chevron.rotated {
-    transform: rotate(180deg);
   }
 
   /* Subtle pulse on generate button when ready */
@@ -253,6 +311,30 @@
     0%, 100% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
   }
+
+  /* Suggestion chips - Command Center aesthetic */
+  .suggestion-chip {
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .suggestion-chip:hover {
+    filter: brightness(1.1);
+    border-color: hsl(var(--primary) / 0.5) !important;
+  }
+
+  .suggestion-chip.active {
+    background-color: hsl(var(--primary) / 0.15) !important;
+    border-color: hsl(var(--primary) / 0.5) !important;
+    color: hsl(var(--primary)) !important;
+  }
+
+  .suggestion-chip.active::before {
+    content: "✓ ";
+    font-weight: bold;
+    margin-right: 2px;
+  }
 </style>
 
 <script>
@@ -284,24 +366,105 @@
       tokenCounterEl.classList.add('token-counter-green');
       tokenCounterEl.title = 'Token count OK';
     }
+
+    // Update chip states when prompt changes
+    updateChipStates();
   }
 
-  // Toggle prompt tips visibility
-  function togglePromptTips() {
-    const tips = document.getElementById('prompt-tips');
-    const chevron = document.getElementById('tips-chevron');
-    const button = tips.previousElementSibling;
+  // Add suggestion to prompt
+  function addSuggestion(term) {
+    const promptInput = document.getElementById('prompt-input');
+    if (!promptInput) return;
 
-    if (tips.classList.contains('hidden')) {
-      tips.classList.remove('hidden');
-      chevron.classList.add('rotated');
-      button.setAttribute('aria-expanded', 'true');
+    const currentPrompt = promptInput.value.trim();
+
+    // Check if term already exists (case-insensitive)
+    const promptLower = currentPrompt.toLowerCase();
+    const termLower = term.toLowerCase();
+
+    if (promptLower.includes(termLower)) {
+      // Term already in prompt, don't add again
+      if (typeof showInfoToast === 'function') {
+        showInfoToast('Already Added', `"${term}" is already in your prompt`);
+      }
+      // Close dropdown anyway
+      document.querySelectorAll('.tag-dropdown-menu').forEach(d => d.classList.add('hidden'));
+      document.querySelectorAll('.tag-dropdown-btn').forEach(b => b.classList.remove('active'));
+      return;
+    }
+
+    // Add term with comma separator if prompt exists
+    if (currentPrompt) {
+      promptInput.value = currentPrompt + ', ' + term;
     } else {
-      tips.classList.add('hidden');
-      chevron.classList.remove('rotated');
-      button.setAttribute('aria-expanded', 'false');
+      promptInput.value = term;
+    }
+
+    // Update token count and chip states
+    updateTokenCount();
+
+    // Close dropdown after selection
+    document.querySelectorAll('.tag-dropdown-menu').forEach(d => d.classList.add('hidden'));
+    document.querySelectorAll('.tag-dropdown-btn').forEach(b => b.classList.remove('active'));
+
+    // Focus back on input
+    promptInput.focus();
+  }
+
+  // Update chip active states based on current prompt
+  function updateChipStates() {
+    const promptInput = document.getElementById('prompt-input');
+    if (!promptInput) return;
+
+    const promptLower = promptInput.value.toLowerCase();
+    const chips = document.querySelectorAll('.suggestion-chip');
+
+    chips.forEach(chip => {
+      const term = chip.getAttribute('data-term');
+      if (term && promptLower.includes(term.toLowerCase())) {
+        chip.classList.add('active');
+      } else {
+        chip.classList.remove('active');
+      }
+    });
+  }
+
+  // Toggle tag dropdown - opens one, closes others
+  function toggleTagDropdown(category) {
+    const dropdown = document.getElementById(`dropdown-${category}`);
+    const btn = dropdown.previousElementSibling;
+    const allDropdowns = document.querySelectorAll('.tag-dropdown-menu');
+    const allBtns = document.querySelectorAll('.tag-dropdown-btn');
+
+    // Close all dropdowns first
+    allDropdowns.forEach(d => {
+      if (d.id !== `dropdown-${category}`) {
+        d.classList.add('hidden');
+      }
+    });
+    allBtns.forEach(b => {
+      if (b !== btn) {
+        b.classList.remove('active');
+      }
+    });
+
+    // Toggle the clicked one
+    if (dropdown.classList.contains('hidden')) {
+      dropdown.classList.remove('hidden');
+      btn.classList.add('active');
+    } else {
+      dropdown.classList.add('hidden');
+      btn.classList.remove('active');
     }
   }
+
+  // Close dropdowns when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.tag-dropdown')) {
+      document.querySelectorAll('.tag-dropdown-menu').forEach(d => d.classList.add('hidden'));
+      document.querySelectorAll('.tag-dropdown-btn').forEach(b => b.classList.remove('active'));
+    }
+  });
 
   // Keyboard shortcuts for prompt bar
   document.addEventListener('DOMContentLoaded', function() {
@@ -309,7 +472,7 @@
     const generateBtn = document.getElementById('generate-btn');
     const form = document.getElementById('generate-form');
 
-    // Initialize token count on page load
+    // Initialize token count and chip states on page load
     updateTokenCount();
 
     // Show toast on form submit
