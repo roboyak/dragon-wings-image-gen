@@ -1,6 +1,6 @@
 class ImagesController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_image, only: [:show, :status]
+  before_action :set_image, only: [:show, :status, :toggle_favorite]
   before_action :check_quota, only: [:create]
 
   # GET /images
@@ -17,6 +17,10 @@ class ImagesController < ApplicationController
       # History: Show ALL images (including failed/generating)
       @images = base_query.recent
       @view_mode = 'history'
+    when 'favorites'
+      # Favorites: Show only favorited images
+      @images = base_query.where(favorite: true).recent
+      @view_mode = 'favorites'
     else
       # Default: Show all recent images
       @images = base_query.recent
@@ -162,6 +166,16 @@ class ImagesController < ApplicationController
 
     rescue StableDiffusionService::StatusCheckError => e
       render json: { error: e.message }, status: :service_unavailable
+    end
+  end
+
+  # POST /images/:id/toggle_favorite
+  def toggle_favorite
+    @image.update(favorite: !@image.favorite)
+
+    respond_to do |format|
+      format.html { redirect_back fallback_location: images_path }
+      format.json { render json: { id: @image.id, favorite: @image.favorite } }
     end
   end
 
