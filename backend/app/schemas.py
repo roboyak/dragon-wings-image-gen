@@ -1,7 +1,22 @@
 """Pydantic schemas for request/response validation."""
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from fastapi import UploadFile
+
+
+class LoraSpec(BaseModel):
+    """LoRA specification for generation request."""
+
+    key: str = Field(..., description="LoRA identifier (e.g., 'thangka', 'watercolor')")
+    weight: Optional[float] = Field(None, ge=0.0, le=1.5, description="LoRA weight/strength (0.0-1.5, None=default)")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "key": "watercolor",
+                "weight": 0.8,
+            }
+        }
 
 
 class GenerateRequest(BaseModel):
@@ -15,6 +30,7 @@ class GenerateRequest(BaseModel):
     width: Optional[int] = Field(512, ge=256, le=1024, description="Image width (multiple of 8)")
     height: Optional[int] = Field(512, ge=256, le=1024, description="Image height (multiple of 8)")
     seed: Optional[int] = Field(None, ge=0, description="Random seed for reproducibility")
+    loras: Optional[List[LoraSpec]] = Field(None, max_length=3, description="LoRA adapters to apply (max 3)")
 
     class Config:
         json_schema_extra = {

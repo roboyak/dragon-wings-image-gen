@@ -63,6 +63,9 @@ class ImagesController < ApplicationController
         )
       else
         # Text-to-image generation (default)
+        # Parse LoRA params if present
+        loras = parse_lora_params
+
         api_response = StableDiffusionService.generate(
           prompt: @image.prompt,
           model_key: @image.model_key || 'sd-v1-5',
@@ -70,7 +73,8 @@ class ImagesController < ApplicationController
           num_inference_steps: @image.num_inference_steps || 30,
           guidance_scale: @image.guidance_scale || 7.5,
           width: @image.width || 512,
-          height: @image.height || 512
+          height: @image.height || 512,
+          loras: loras
         )
       end
 
@@ -207,5 +211,29 @@ class ImagesController < ApplicationController
         format.json { render json: { error: 'Quota exceeded' }, status: :forbidden }
       end
     end
+  end
+
+  # Parse LoRA params from form submission
+  # Supports both single lora_key and multiple loras[] array
+  def parse_lora_params
+    loras = []
+
+    # Handle array format: loras[][key], loras[][weight]
+    if params[:loras].present? && params[:loras].is_a?(Array)
+      params[:loras].each do |lora|
+        next unless lora[:key].present?
+        loras << {
+          key: lora[:key],
+          weight: lora[:weight]&.to_f || 0.8
+        }
+      end
+    # Handle simple single lora_key format (backwards compatible)
+    elsif params.dig(:image, :lora_key).present?
+      lora_key = params[:image][:lora_key]
+      lora_weight = params.dig(:image, :lora_weight)&.to_f || 0.8
+      loras << { key: lora_key, weight: lora_weight }
+    end
+
+    loras.presence # Return nil if empty
   end
 end

@@ -1,7 +1,7 @@
 """Stable Diffusion model management."""
 import os
 import logging
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from PIL import Image
 import torch
 
@@ -29,7 +29,7 @@ from diffusers import (
     DPMSolverMultistepScheduler,
     FluxPipeline,
 )
-from .config import settings
+from .config import settings, LORA_CONFIGS
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,8 @@ class StableDiffusionModel:
         self.model_cache = {}
         self.device = settings.device
         self.current_model_id = settings.model_id
+        # Track loaded LoRAs: {model_id: {lora_key: adapter_name}}
+        self.loaded_loras: Dict[str, Dict[str, str]] = {}
 
     def _is_sdxl_model(self, model_id: str) -> bool:
         """Check if the model is an SDXL model."""
@@ -62,6 +64,162 @@ class StableDiffusionModel:
     def _is_flux_model(self, model_id: str) -> bool:
         """Check if the model is a FLUX model."""
         return any(flux_id in model_id for flux_id in self.FLUX_MODEL_IDS)
+
+    def _get_model_key_from_id(self, model_id: str) -> Optional[str]:
+        """Get the model key from a model ID by searching MODEL_CONFIGS."""
+        from .config import MODEL_CONFIGS
+        for key, config in MODEL_CONFIGS.items():
+            if config["model_id"] == model_id:
+                return key
+        return None
+
+    def load_lora(
+        self,
+        pipeline,
+        lora_key: str,
+        model_key: str,
+        weight: float = None,
+    ) -> Optional[str]:
+        """Load a LoRA adapter onto a pipeline.
+
+        Args:
+            pipeline: The diffusers pipeline to load the LoRA onto
+            lora_key: The LoRA identifier (e.g., 'thangka', 'watercolor')
+            model_key: The model key (e.g., 'sd-v1-5', 'sdxl') for compatibility check
+            weight: Optional weight override (uses default from config if not specified)
+
+        Returns:
+            The adapter name if successfully loaded, None otherwise
+        """
+        # Get LoRA config
+        if lora_key not in LORA_CONFIGS:
+            logger.warning(f"Unknown LoRA key: {lora_key}")
+            return None
+
+        lora_config = LORA_CONFIGS[lora_key]
+
+        # Check for local path first, then fall back to HuggingFace ID
+        local_path = lora_config.get("local_path")
+        lora_id = lora_config.get("lora_id")
+
+        # Determine which source to use
+        if local_path and os.path.exists(local_path):
+            lora_source = local_path
+            source_type = "local"
+            logger.info(f"Using local LoRA file: {local_path}")
+        elif lora_id and "TODO:" not in lora_id:
+            lora_source = lora_id
+            source_type = "huggingface"
+        else:
+            logger.warning(f"LoRA '{lora_key}' has no valid source. "
+                          f"local_path={local_path}, lora_id={lora_id}")
+            return None
+
+        # Check compatibility
+        if not settings.is_lora_compatible(lora_key, model_key):
+            logger.warning(
+                f"LoRA '{lora_key}' is not compatible with model '{model_key}'. "
+                f"Compatible models: {lora_config.get('compatible_models', [])}"
+            )
+            return None
+
+        # Get model_id from the pipeline for tracking
+        model_id = getattr(pipeline.config, '_name_or_path', None) or str(id(pipeline))
+
+        # Check if already loaded
+        if model_id in self.loaded_loras and lora_key in self.loaded_loras[model_id]:
+            adapter_name = self.loaded_loras[model_id][lora_key]
+            logger.info(f"LoRA '{lora_key}' already loaded as '{adapter_name}'")
+            return adapter_name
+
+        # Load the LoRA
+        adapter_name = lora_key  # Use lora_key as adapter name
+        try:
+            logger.info(f"Loading LoRA '{lora_key}' from {source_type}: '{lora_source}'")
+            pipeline.load_lora_weights(lora_source, adapter_name=adapter_name)
+
+            # Track the loaded LoRA
+            if model_id not in self.loaded_loras:
+                self.loaded_loras[model_id] = {}
+            self.loaded_loras[model_id][lora_key] = adapter_name
+
+            logger.info(f"LoRA '{lora_key}' loaded successfully as adapter '{adapter_name}'")
+            return adapter_name
+
+        except Exception as e:
+            logger.error(f"Failed to load LoRA '{lora_key}' from {source_type}: {e}")
+            return None
+
+    def apply_loras(
+        self,
+        pipeline,
+        lora_specs: List[Dict[str, Any]],
+        model_key: str,
+    ) -> List[str]:
+        """Apply multiple LoRAs to a pipeline with specified weights.
+
+        Args:
+            pipeline: The diffusers pipeline to apply LoRAs to
+            lora_specs: List of dicts with 'key' and optional 'weight' keys
+                       e.g., [{"key": "thangka", "weight": 0.8}, {"key": "watercolor"}]
+            model_key: The model key for compatibility checks
+
+        Returns:
+            List of trigger words to prepend to prompt (if any)
+        """
+        if not lora_specs:
+            # No LoRAs requested - disable any active ones
+            try:
+                pipeline.disable_lora()
+                logger.info("Disabled LoRA (no LoRAs requested)")
+            except Exception as e:
+                logger.debug(f"disable_lora not needed or failed: {e}")
+            return []
+
+        # Load each LoRA and collect adapter names/weights
+        adapter_names = []
+        adapter_weights = []
+        trigger_words = []
+
+        for spec in lora_specs:
+            lora_key = spec.get("key")
+            if not lora_key:
+                continue
+
+            # Get LoRA config for default weight and trigger words
+            lora_config = LORA_CONFIGS.get(lora_key, {})
+            default_weight = lora_config.get("default_weight", 0.8)
+            weight = spec.get("weight", default_weight)
+
+            # Load the LoRA if not already loaded
+            adapter_name = self.load_lora(pipeline, lora_key, model_key, weight)
+            if adapter_name:
+                adapter_names.append(adapter_name)
+                adapter_weights.append(weight)
+                # Collect trigger words
+                lora_triggers = lora_config.get("trigger_words", [])
+                if lora_triggers:
+                    trigger_words.extend(lora_triggers[:1])  # Take first trigger word
+
+        # Apply the loaded LoRAs
+        if adapter_names:
+            try:
+                pipeline.set_adapters(adapter_names, adapter_weights=adapter_weights)
+                logger.info(
+                    f"Applied {len(adapter_names)} LoRA(s): "
+                    f"{list(zip(adapter_names, adapter_weights))}"
+                )
+            except Exception as e:
+                logger.error(f"Failed to set adapters: {e}")
+        else:
+            # No LoRAs were successfully loaded - disable any active ones
+            try:
+                pipeline.disable_lora()
+                logger.info("No LoRAs loaded successfully, disabled LoRA")
+            except Exception as e:
+                logger.debug(f"disable_lora not needed or failed: {e}")
+
+        return trigger_words
 
     def load_model(self, model_id: str = None):
         """Load the Stable Diffusion model into memory.
@@ -171,6 +329,7 @@ class StableDiffusionModel:
         height: int = None,
         seed: Optional[int] = None,
         progress_callback: Optional[callable] = None,
+        lora_specs: Optional[List[Dict[str, Any]]] = None,
     ):
         """
         Generate an image from a text prompt.
@@ -184,6 +343,9 @@ class StableDiffusionModel:
             width: Image width in pixels (must be multiple of 8)
             height: Image height in pixels (must be multiple of 8)
             seed: Random seed for reproducibility
+            progress_callback: Callback function for progress updates
+            lora_specs: Optional list of LoRA specifications, each with 'key' and optional 'weight'
+                       e.g., [{"key": "thangka", "weight": 0.8}]
 
         Returns:
             PIL Image object
@@ -207,6 +369,10 @@ class StableDiffusionModel:
             height = height or 1024
             # FLUX doesn't use negative prompts
             negative_prompt = None
+            # FLUX doesn't support LoRAs in the same way
+            if lora_specs:
+                logger.warning("LoRAs are not supported with FLUX models. Ignoring lora_specs.")
+                lora_specs = None
         elif is_sdxl:
             # SDXL native resolution is 1024x1024
             num_inference_steps = num_inference_steps or settings.default_steps
@@ -226,7 +392,7 @@ class StableDiffusionModel:
         logger.info(
             f"Generating image: prompt='{prompt[:50]}...', "
             f"steps={num_inference_steps}, guidance={guidance_scale}, "
-            f"size={width}x{height}, seed={seed}"
+            f"size={width}x{height}, seed={seed}, loras={lora_specs}"
         )
 
         try:
@@ -237,6 +403,22 @@ class StableDiffusionModel:
 
             # Get the cached pipeline
             pipe = self.model_cache[model_id]["txt2img"]
+
+            # Apply LoRAs if specified (not supported for FLUX)
+            trigger_words = []
+            if lora_specs and not is_flux:
+                # Determine model_key for compatibility check
+                model_key = self._get_model_key_from_id(model_id)
+                if model_key:
+                    trigger_words = self.apply_loras(pipe, lora_specs, model_key)
+                else:
+                    logger.warning(f"Could not determine model_key for {model_id}, skipping LoRA application")
+
+            # Prepend trigger words to prompt if any
+            if trigger_words:
+                trigger_prefix = ", ".join(trigger_words) + ", "
+                prompt = trigger_prefix + prompt
+                logger.info(f"Prepended trigger words to prompt: {trigger_prefix}")
 
             # Create a wrapper callback for diffusers format
             # Note: DPMSolverMultistepScheduler can have off-by-one errors in timestep indexing
@@ -370,6 +552,7 @@ class StableDiffusionModel:
         guidance_scale: float = None,
         seed: Optional[int] = None,
         progress_callback: Optional[callable] = None,
+        lora_specs: Optional[List[Dict[str, Any]]] = None,
     ):
         """
         Generate an image from an initial image and prompt (img2img).
@@ -383,6 +566,9 @@ class StableDiffusionModel:
             num_inference_steps: Number of denoising steps
             guidance_scale: How closely to follow the prompt
             seed: Random seed for reproducibility
+            progress_callback: Callback function for progress updates
+            lora_specs: Optional list of LoRA specifications, each with 'key' and optional 'weight'
+                       e.g., [{"key": "thangka", "weight": 0.8}]
 
         Returns:
             PIL Image object
@@ -404,7 +590,7 @@ class StableDiffusionModel:
         logger.info(
             f"Generating img2img: prompt='{prompt[:50]}...', "
             f"strength={strength}, steps={num_inference_steps}, "
-            f"guidance={guidance_scale}, seed={seed}"
+            f"guidance={guidance_scale}, seed={seed}, loras={lora_specs}"
         )
 
         try:
@@ -440,6 +626,22 @@ class StableDiffusionModel:
 
             # Get the cached pipeline
             img2img_pipe = self.model_cache[model_id]["img2img"]
+
+            # Apply LoRAs if specified
+            trigger_words = []
+            if lora_specs:
+                # Determine model_key for compatibility check
+                model_key = self._get_model_key_from_id(model_id)
+                if model_key:
+                    trigger_words = self.apply_loras(img2img_pipe, lora_specs, model_key)
+                else:
+                    logger.warning(f"Could not determine model_key for {model_id}, skipping LoRA application")
+
+            # Prepend trigger words to prompt if any
+            if trigger_words:
+                trigger_prefix = ", ".join(trigger_words) + ", "
+                prompt = trigger_prefix + prompt
+                logger.info(f"Prepended trigger words to prompt: {trigger_prefix}")
 
             # Create a wrapper callback for diffusers format
             # Note: DPMSolverMultistepScheduler can have off-by-one errors in timestep indexing
@@ -486,6 +688,9 @@ class StableDiffusionModel:
             if model_id in self.model_cache:
                 logger.info(f"Unloading model: {model_id}")
                 del self.model_cache[model_id]
+                # Also clear LoRA tracking for this model
+                if model_id in self.loaded_loras:
+                    del self.loaded_loras[model_id]
                 logger.info(f"Model {model_id} unloaded")
             else:
                 logger.warning(f"Model {model_id} not found in cache")
@@ -494,6 +699,7 @@ class StableDiffusionModel:
             if self.model_cache:
                 logger.info(f"Unloading all models ({len(self.model_cache)} cached)")
                 self.model_cache.clear()
+                self.loaded_loras.clear()  # Clear all LoRA tracking
                 logger.info("All models unloaded")
 
         # Clear CUDA cache if using GPU

@@ -8,6 +8,7 @@ diffusers>=0.24.0
 transformers>=4.35.0
 accelerate>=0.24.0
 safetensors>=0.4.0
+peft>=0.10.0  # LoRA adapter support
 
 # PyTorch (latest stable version compatible with Python 3.13)
 torch>=2.0.0

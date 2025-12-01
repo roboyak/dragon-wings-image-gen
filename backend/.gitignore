@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+.venv/
+
+# LoRA model files (large binary files - download with scripts/download_loras.py)
+loras/*.safetensors
+loras/*.bin
+loras/.cache/
+
+# Generated images
+generated_images/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
