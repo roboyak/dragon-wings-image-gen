@@ -5,6 +5,18 @@ from typing import Optional
 from PIL import Image
 import torch
 
+# Default negative prompt for quality improvement
+# This catches common SD artifacts and quality issues
+DEFAULT_NEGATIVE_PROMPT = (
+    "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, "
+    "fewer digits, cropped, worst quality, low quality, normal quality, "
+    "jpeg artifacts, signature, watermark, username, blurry, deformed, "
+    "disfigured, mutation, mutated, ugly, duplicate, morbid, mutilated, "
+    "out of frame, extra limbs, bad proportions, malformed limbs, missing arms, "
+    "missing legs, extra arms, extra legs, fused fingers, too many fingers, "
+    "long neck, poorly drawn hands, poorly drawn face"
+)
+
 # Fix for MPS black image bug on Apple Silicon
 if torch.backends.mps.is_available():
     torch.backends.mps.enable_fallback_operations = True
@@ -165,6 +177,10 @@ class StableDiffusionModel:
             width = width or settings.default_width
             height = height or settings.default_height
 
+        # Use default negative prompt if none provided
+        if not negative_prompt:
+            negative_prompt = DEFAULT_NEGATIVE_PROMPT
+
         logger.info(
             f"Generating image: prompt='{prompt[:50]}...', "
             f"steps={num_inference_steps}, guidance={guidance_scale}, "
@@ -181,10 +197,16 @@ class StableDiffusionModel:
             pipe = self.model_cache[model_id]["txt2img"]
 
             # Create a wrapper callback for diffusers format
+            # Note: DPMSolverMultistepScheduler can have off-by-one errors in timestep indexing
+            # during callbacks, so we wrap in try-except to handle edge cases gracefully
             def step_callback(pipe_instance, step, timestep, callback_kwargs):
-                if progress_callback:
-                    progress = (step + 1) / num_inference_steps * 100
-                    progress_callback(progress)
+                try:
+                    if progress_callback:
+                        progress = (step + 1) / num_inference_steps * 100
+                        progress_callback(progress)
+                except (IndexError, RuntimeError) as e:
+                    # Gracefully handle scheduler index overflow (known DPM++ bug)
+                    logger.debug(f"Callback step {step} handled: {e}")
                 return callback_kwargs
 
             # Generate image
@@ -320,6 +342,10 @@ class StableDiffusionModel:
         num_inference_steps = num_inference_steps or settings.default_steps
         guidance_scale = guidance_scale or settings.default_guidance_scale
 
+        # Use default negative prompt if none provided
+        if not negative_prompt:
+            negative_prompt = DEFAULT_NEGATIVE_PROMPT
+
         logger.info(
             f"Generating img2img: prompt='{prompt[:50]}...', "
             f"strength={strength}, steps={num_inference_steps}, "
@@ -361,10 +387,16 @@ class StableDiffusionModel:
             img2img_pipe = self.model_cache[model_id]["img2img"]
 
             # Create a wrapper callback for diffusers format
+            # Note: DPMSolverMultistepScheduler can have off-by-one errors in timestep indexing
+            # during callbacks, so we wrap in try-except to handle edge cases gracefully
             def step_callback(pipe_instance, step, timestep, callback_kwargs):
-                if progress_callback:
-                    progress = (step + 1) / num_inference_steps * 100
-                    progress_callback(progress)
+                try:
+                    if progress_callback:
+                        progress = (step + 1) / num_inference_steps * 100
+                        progress_callback(progress)
+                except (IndexError, RuntimeError) as e:
+                    # Gracefully handle scheduler index overflow (known DPM++ bug)
+                    logger.debug(f"Callback step {step} handled: {e}")
                 return callback_kwargs
 
             # Generate image
