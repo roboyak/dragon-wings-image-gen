@@ -1409,6 +1409,65 @@
     });
   }
 
+  // Toggle favorite status on an image
+  function toggleFavorite(imageId, button) {
+    fetch(`/images/${imageId}/toggle_favorite`, {
+      method: 'POST',
+      headers: {
+        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      const isFavorited = data.favorite;
+      const card = document.querySelector(`[data-image-id="${imageId}"]`);
+
+      // Update button state
+      button.setAttribute('data-favorited', isFavorited);
+      button.style.backgroundColor = isFavorited ? 'hsl(var(--destructive))' : 'hsl(var(--muted))';
+      button.style.color = isFavorited ? 'white' : 'hsl(var(--foreground))';
+      button.title = isFavorited ? 'Remove from Favorites' : 'Add to Favorites';
+
+      // Update heart icon fill
+      const heartSvg = button.querySelector('svg');
+      if (heartSvg) {
+        heartSvg.setAttribute('fill', isFavorited ? 'currentColor' : 'none');
+      }
+
+      // Update or add/remove the persistent favorite indicator
+      if (card) {
+        let indicator = card.querySelector('.favorite-indicator');
+        if (isFavorited && !indicator) {
+          // Add indicator
+          const imageContainer = card.querySelector('.relative.overflow-hidden');
+          if (imageContainer) {
+            const indicatorDiv = document.createElement('div');
+            indicatorDiv.className = 'favorite-indicator absolute top-2 left-2 p-1.5 rounded-full';
+            indicatorDiv.style.backgroundColor = 'hsl(var(--destructive) / 0.9)';
+            indicatorDiv.innerHTML = `<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24" style="color: white;">
+              <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+            </svg>`;
+            imageContainer.insertBefore(indicatorDiv, imageContainer.querySelector('img').nextSibling);
+          }
+        } else if (!isFavorited && indicator) {
+          // Remove indicator
+          indicator.remove();
+        }
+      }
+
+      showSuccessToast(
+        isFavorited ? 'Added to Favorites' : 'Removed from Favorites',
+        isFavorited ? 'Image saved to your favorites' : 'Image removed from favorites'
+      );
+    })
+    .catch(err => {
+      console.error('Toggle favorite failed:', err);
+      showErrorToast('Action Failed', 'Could not update favorite status');
+    });
+  }
+
   // ============================================
   // TOAST NOTIFICATIONS (Phase 4.3)
   // ============================================

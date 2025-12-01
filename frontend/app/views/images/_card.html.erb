@@ -16,6 +16,15 @@
           loading: "lazy",
           onload: "this.classList.add('loaded')" %>
 
+      <%# Favorite Heart Indicator (always visible when favorited) %>
+      <% if image.favorite? %>
+        <div class="favorite-indicator absolute top-2 left-2 p-1.5 rounded-full" style="background-color: hsl(var(--destructive) / 0.9);">
+          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24" style="color: white;">
+            <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+          </svg>
+        </div>
+      <% end %>
+
       <%# Hover Overlay with Gradient %>
       <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-200 flex flex-col justify-end p-3">
         <%# Prompt Text %>
@@ -50,6 +59,16 @@
                   aria-label="Remix image with same prompt">
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+          </button>
+          <button onclick="event.stopPropagation(); toggleFavorite(<%= image.id %>, this)"
+                  class="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors hover:bg-white/20"
+                  style="background-color: <%= image.favorite? ? 'hsl(var(--destructive))' : 'hsl(var(--muted))' %>; color: <%= image.favorite? ? 'white' : 'hsl(var(--foreground))' %>;"
+                  title="<%= image.favorite? ? 'Remove from Favorites' : 'Add to Favorites' %>"
+                  aria-label="<%= image.favorite? ? 'Remove from favorites' : 'Add to favorites' %>"
+                  data-favorited="<%= image.favorite? %>">
+            <svg class="w-3 h-3" fill="<%= image.favorite? ? 'currentColor' : 'none' %>" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
             </svg>
           </button>
         </div>

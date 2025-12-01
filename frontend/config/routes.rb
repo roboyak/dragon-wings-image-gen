@@ -5,6 +5,7 @@ Rails.application.routes.draw do
   resources :images, only: [:index, :create, :show] do
     member do
       get :status
+      post :toggle_favorite
     end
     collection do
       post :enhance_prompt
