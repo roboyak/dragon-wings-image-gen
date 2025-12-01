@@ -5,7 +5,24 @@ class ImagesController < ApplicationController
 
   # GET /images
   def index
-    @images = current_user.images.recent
+    # Support view filters via query params (Phase 4C: Gallery/History views)
+    base_query = current_user.images
+
+    case params[:view]
+    when 'gallery'
+      # Gallery: Show only successful/completed images
+      @images = base_query.where(status: 'completed').recent
+      @view_mode = 'gallery'
+    when 'history'
+      # History: Show ALL images (including failed/generating)
+      @images = base_query.recent
+      @view_mode = 'history'
+    else
+      # Default: Show all recent images
+      @images = base_query.recent
+      @view_mode = 'all'
+    end
+
     @pending_images = current_user.images.where(status: ['pending', 'processing']).recent
   end
 

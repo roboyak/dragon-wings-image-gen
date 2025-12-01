@@ -1,5 +1,9 @@
 class HomeController < ApplicationController
   def index
-    # Show landing page for guests, dashboard for authenticated users
+    # Redirect logged-in users to images page (Phase 4C: Remove stale "Coming Soon" content)
+    if user_signed_in?
+      redirect_to images_path
+    end
+    # Show landing page for guests
   end
 end
