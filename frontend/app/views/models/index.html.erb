@@ -1,0 +1,141 @@
+<%# Models Comparison - Dragon Wings Design System %>
+<div class="dw-page">
+  <%# Header %>
+  <div class="dw-page-header">
+    <h1 class="dw-page-title text-foreground">AI Models</h1>
+    <p class="dw-page-description">Compare our available Stable Diffusion models to find the best fit for your creative needs</p>
+  </div>
+
+  <%# Quick Comparison Table %>
+  <div class="dw-card mb-6 overflow-hidden">
+    <div class="dw-card-header">
+      <h2 class="text-lg font-semibold text-foreground">Quick Comparison</h2>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr style="background-color: hsl(var(--muted) / 0.3);">
+            <th class="px-4 py-3 text-left font-semibold text-foreground">Model</th>
+            <th class="px-4 py-3 text-left font-semibold text-foreground">Category</th>
+            <th class="px-4 py-3 text-left font-semibold text-foreground">Resolution</th>
+            <th class="px-4 py-3 text-left font-semibold text-foreground">RAM</th>
+            <th class="px-4 py-3 text-center font-semibold text-foreground">Img2Img</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @models.each_with_index do |model, idx| %>
+            <tr style="<%= idx.odd? ? 'background-color: hsl(var(--muted) / 0.1);' : '' %> border-bottom: 1px solid hsl(var(--border));">
+              <td class="px-4 py-3">
+                <span class="font-medium text-foreground"><%= model[:name] %></span>
+                <% if model[:next_gen] %>
+                  <span class="ml-2 text-xs px-1.5 py-0.5 rounded" style="background-color: hsl(var(--primary) / 0.2); color: hsl(var(--primary));">NEW</span>
+                <% end %>
+                <% if model[:requires_gpu] %>
+                  <span class="ml-2 text-xs px-1.5 py-0.5 rounded" style="background-color: hsl(var(--warning) / 0.2); color: hsl(var(--warning));">GPU</span>
+                <% end %>
+              </td>
+              <td class="px-4 py-3 text-muted"><%= model[:category] %></td>
+              <td class="px-4 py-3 text-muted"><%= model[:resolution] %></td>
+              <td class="px-4 py-3 text-muted"><%= model[:ram] %></td>
+              <td class="px-4 py-3 text-center">
+                <% if model[:supports_img2img] %>
+                  <svg class="w-5 h-5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--success));">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                <% else %>
+                  <svg class="w-5 h-5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <%# Detailed Model Cards %>
+  <div class="space-y-4">
+    <% @models.each do |model| %>
+      <div class="dw-card">
+        <div class="dw-card-content" style="padding-top: 1.5rem;">
+          <%# Header %>
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <h3 class="text-lg font-semibold text-foreground"><%= model[:name] %></h3>
+                <% if model[:next_gen] %>
+                  <span class="text-xs px-2 py-0.5 rounded-full" style="background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));">Next-Gen</span>
+                <% end %>
+                <% if model[:requires_gpu] %>
+                  <span class="text-xs px-2 py-0.5 rounded-full" style="background-color: hsl(var(--warning)); color: hsl(0 0% 10%);">GPU Required</span>
+                <% end %>
+              </div>
+              <p class="text-sm text-muted"><%= model[:description] %></p>
+            </div>
+            <div class="flex items-center gap-4 text-sm">
+              <div class="text-center">
+                <p class="text-xs text-muted uppercase tracking-wider">Resolution</p>
+                <p class="font-semibold text-foreground"><%= model[:resolution] %></p>
+              </div>
+              <div class="text-center">
+                <p class="text-xs text-muted uppercase tracking-wider">RAM</p>
+                <p class="font-semibold text-foreground"><%= model[:ram] %></p>
+              </div>
+            </div>
+          </div>
+
+          <%# Best For %>
+          <div class="mb-4 p-3 rounded-lg" style="background-color: hsl(var(--muted) / 0.3);">
+            <p class="text-xs text-muted uppercase tracking-wider mb-1">Best For</p>
+            <p class="text-sm text-foreground"><%= model[:recommended_for] %></p>
+          </div>
+
+          <%# Strengths & Weaknesses %>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-xs text-muted uppercase tracking-wider mb-2 flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--success));">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                Strengths
+              </p>
+              <ul class="space-y-1">
+                <% model[:strengths].each do |strength| %>
+                  <li class="text-sm text-foreground flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full" style="background-color: hsl(var(--success));"></span>
+                    <%= strength %>
+                  </li>
+                <% end %>
+              </ul>
+            </div>
+            <div>
+              <p class="text-xs text-muted uppercase tracking-wider mb-2 flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--warning));">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                Limitations
+              </p>
+              <ul class="space-y-1">
+                <% model[:weaknesses].each do |weakness| %>
+                  <li class="text-sm text-muted flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full" style="background-color: hsl(var(--warning));"></span>
+                    <%= weakness %>
+                  </li>
+                <% end %>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <%# Back Link %>
+  <div class="mt-6 text-center">
+    <%= link_to images_path, class: "text-sm transition-colors text-muted" do %>
+      ← Back to Create
+    <% end %>
+  </div>
+</div>

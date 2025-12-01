@@ -1,43 +1,139 @@
-<h2>Edit <%= resource_name.to_s.humanize %></h2>
-
-<%= form_for(resource, as: resource_name, url: registration_path(resource_name), html: { method: :put }) do |f| %>
-  <%= render "devise/shared/error_messages", resource: resource %>
-
-  <div class="field">
-    <%= f.label :email %><br />
-    <%= f.email_field :email, autofocus: true, autocomplete: "email" %>
+<%# Account Settings - Dragon Wings Design System %>
+<div class="dw-page">
+  <%# Header %>
+  <div class="dw-page-header">
+    <h1 class="dw-page-title text-foreground">Account Settings</h1>
+    <p class="dw-page-description">Manage your account details and security settings</p>
   </div>
 
-  <% if devise_mapping.confirmable? && resource.pending_reconfirmation? %>
-    <div>Currently waiting confirmation for: <%= resource.unconfirmed_email %></div>
-  <% end %>
+  <%# Profile Card %>
+  <div class="dw-card mb-6">
+    <div class="dw-card-content" style="padding-top: 1.5rem;">
+      <div class="flex items-center gap-4 mb-6">
+        <div class="dw-avatar" style="width: 4rem; height: 4rem; font-size: 1.5rem;">
+          <%= resource.email.first.upcase %>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-foreground">
+            <%= resource.email.split('@').first %>
+          </h2>
+          <p class="text-sm text-muted">
+            <%= resource.email %>
+          </p>
+        </div>
+      </div>
 
-  <div class="field">
-    <%= f.label :password %> <i>(leave blank if you don't want to change it)</i><br />
-    <%= f.password_field :password, autocomplete: "new-password" %>
-    <% if @minimum_password_length %>
-      <br />
-      <em><%= @minimum_password_length %> characters minimum</em>
+      <%# Usage Stats %>
+      <div class="dw-grid dw-grid-2 p-4 rounded-lg bg-muted" style="background-color: hsl(var(--muted) / 0.3);">
+        <div>
+          <p class="text-xs uppercase tracking-wider mb-1 text-muted">Today's Usage</p>
+          <p class="text-xl font-bold text-primary">
+            <%= current_user.generations_today %><span class="text-sm font-normal text-muted">/<%= current_user.generation_quota %></span>
+          </p>
+        </div>
+        <div>
+          <p class="text-xs uppercase tracking-wider mb-1 text-muted">Account Tier</p>
+          <p class="text-xl font-bold text-foreground">
+            <%= current_user.subscription_tier&.titleize || 'Free' %>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%# Edit Form Card %>
+  <div class="dw-card">
+    <div class="dw-card-header">
+      <h3 class="text-lg font-semibold text-foreground">Update Profile</h3>
+    </div>
+    <div class="dw-card-content">
+      <%= form_for(resource, as: resource_name, url: registration_path(resource_name), html: { method: :put, class: "space-y-4" }) do |f| %>
+        <%= render "devise/shared/error_messages", resource: resource %>
+
+        <%# Email Field %>
+        <div>
+          <%= f.label :email, "Email Address", class: "dw-label" %>
+          <%= f.email_field :email,
+              autofocus: true,
+              autocomplete: "email",
+              class: "dw-input",
+              placeholder: "Enter your email" %>
+          <% if devise_mapping.confirmable? && resource.pending_reconfirmation? %>
+            <p class="text-xs mt-1 text-muted" style="color: hsl(var(--warning));">
+              Waiting confirmation for: <%= resource.unconfirmed_email %>
+            </p>
+          <% end %>
+        </div>
+
+        <%# Password Section %>
+        <div class="pt-4 border-t" style="border-color: hsl(var(--border));">
+          <h4 class="text-sm font-semibold mb-3 text-foreground">Change Password</h4>
+          <p class="text-xs mb-4 text-muted">Leave blank if you don't want to change your password</p>
+
+          <div class="space-y-4">
+            <%# New Password %>
+            <div>
+              <%= f.label :password, "New Password", class: "dw-label" %>
+              <%= f.password_field :password,
+                  autocomplete: "new-password",
+                  placeholder: "Enter new password",
+                  class: "dw-input" %>
+              <% if @minimum_password_length %>
+                <p class="text-xs mt-1 text-muted">
+                  <%= @minimum_password_length %> characters minimum
+                </p>
+              <% end %>
+            </div>
+
+            <%# Password Confirmation %>
+            <div>
+              <%= f.label :password_confirmation, "Confirm New Password", class: "dw-label" %>
+              <%= f.password_field :password_confirmation,
+                  autocomplete: "new-password",
+                  placeholder: "Confirm new password",
+                  class: "dw-input" %>
+            </div>
+          </div>
+        </div>
+
+        <%# Current Password (for confirmation) %>
+        <div class="pt-4 border-t" style="border-color: hsl(var(--border));">
+          <%= f.label :current_password, "Current Password", class: "dw-label" %>
+          <p class="text-xs mb-2 text-muted">Required to confirm changes</p>
+          <%= f.password_field :current_password,
+              autocomplete: "current-password",
+              placeholder: "Enter current password",
+              class: "dw-input" %>
+        </div>
+
+        <%# Submit Button %>
+        <div class="pt-4">
+          <%= f.submit "Save Changes", class: "dw-btn dw-btn-primary w-full" %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+
+  <%# Danger Zone %>
+  <div class="dw-card mt-6" style="border-color: hsl(var(--destructive) / 0.3);">
+    <div class="dw-card-content" style="padding-top: 1.5rem;">
+      <h3 class="text-lg font-semibold mb-2 text-destructive">Danger Zone</h3>
+      <p class="text-sm mb-4 text-muted">
+        Once you delete your account, there is no going back. All your images and data will be permanently removed.
+      </p>
+      <%= button_to "Delete Account",
+          registration_path(resource_name),
+          method: :delete,
+          data: { turbo_confirm: "Are you sure you want to delete your account? This action cannot be undone." },
+          class: "dw-btn dw-btn-outline text-destructive",
+          style: "border-color: hsl(var(--destructive)); color: hsl(var(--destructive));" %>
+    </div>
+  </div>
+
+  <%# Back Link %>
+  <div class="mt-6 text-center">
+    <%= link_to images_path, class: "text-sm transition-colors text-muted" do %>
+      ← Back to Gallery
     <% end %>
   </div>
-
-  <div class="field">
-    <%= f.label :password_confirmation %><br />
-    <%= f.password_field :password_confirmation, autocomplete: "new-password" %>
-  </div>
-
-  <div class="field">
-    <%= f.label :current_password %> <i>(we need your current password to confirm your changes)</i><br />
-    <%= f.password_field :current_password, autocomplete: "current-password" %>
-  </div>
-
-  <div class="actions">
-    <%= f.submit "Update" %>
-  </div>
-<% end %>
-
-<h3>Cancel my account</h3>
-
-<div>Unhappy? <%= button_to "Cancel my account", registration_path(resource_name), data: { confirm: "Are you sure?", turbo_confirm: "Are you sure?" }, method: :delete %></div>
-
-<%= link_to "Back", :back %>
+</div>
