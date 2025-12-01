@@ -79,6 +79,19 @@ MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
         "img2img": True,
         "prompt_suffix": "analog style",
     },
+    "flux-schnell": {
+        "model_id": "black-forest-labs/FLUX.1-schnell",
+        "name": "FLUX.1 Schnell",
+        "description": "State-of-art quality, excellent text rendering, fast generation",
+        "native_resolution": 1024,
+        "recommended_for": "High quality images, text in images, professional results",
+        "strengths": ["Best quality", "Text rendering", "Prompt following", "Fast for its quality"],
+        "weaknesses": ["Large model (~12GB)", "Higher memory usage"],
+        "ram_required_gb": 12,
+        "txt2img": True,
+        "img2img": False,
+        "pipeline_type": "flux",
+    },
 }
 
 
