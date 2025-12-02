@@ -1,6 +1,6 @@
 class ImagesController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_image, only: [:show, :status, :toggle_favorite]
+  before_action :set_image, only: [:show, :status, :toggle_favorite, :edit_mask, :generate_inpaint]
   before_action :check_quota, only: [:create]
 
   # GET /images
@@ -183,6 +183,79 @@ class ImagesController < ApplicationController
     end
   end
 
+  # GET /images/:id/edit_mask
+  # Mask editor page for inpainting
+  def edit_mask
+    unless @image.generation_complete?
+      redirect_to @image, alert: "Cannot edit mask for incomplete image"
+      return
+    end
+
+    # Check if model supports inpainting
+    @supports_inpaint = model_supports_inpaint?(@image.model_key)
+    @available_models = available_inpaint_models
+  end
+
+  # POST /images/:id/generate_inpaint
+  # Generate new image using mask
+  def generate_inpaint
+    unless params[:mask_data].present?
+      render json: { error: 'Mask data is required' }, status: :unprocessable_entity
+      return
+    end
+
+    begin
+      # Create new image record for the inpainted result
+      @new_image = current_user.images.new(
+        prompt: params[:prompt],
+        negative_prompt: params[:negative_prompt],
+        model_key: params[:model_key] || @image.model_key,
+        num_inference_steps: params[:num_inference_steps]&.to_i || 30,
+        guidance_scale: params[:guidance_scale]&.to_f || 7.5,
+        generation_type: 'inpaint',
+        parent_image_id: @image.id
+      )
+
+      # Parse LoRA params
+      loras = parse_inpaint_lora_params
+
+      # Call backend inpainting API
+      api_response = StableDiffusionService.generate_inpaint(
+        init_image_url: @image.image_url,
+        mask_data: params[:mask_data],
+        prompt: params[:prompt],
+        model_key: params[:model_key] || @image.model_key,
+        negative_prompt: params[:negative_prompt],
+        strength: params[:strength]&.to_f || 0.8,
+        num_inference_steps: params[:num_inference_steps]&.to_i || 30,
+        guidance_scale: params[:guidance_scale]&.to_f || 7.5,
+        blur_mask: params[:blur_mask] != 'false',
+        blur_factor: params[:blur_factor]&.to_i || 33,
+        seed: params[:seed]&.to_i,
+        loras: loras
+      )
+
+      @new_image.job_id = api_response['job_id']
+      @new_image.status = api_response['status'] || 'pending'
+
+      if @new_image.save
+        current_user.increment_generations!
+        render json: {
+          id: @new_image.id,
+          job_id: @new_image.job_id,
+          status: @new_image.status,
+          status_url: status_image_path(@new_image)
+        }, status: :created
+      else
+        render json: { error: @new_image.errors.full_messages.join(', ') }, status: :unprocessable_entity
+      end
+
+    rescue StableDiffusionService::GenerationError => e
+      Rails.logger.error "=== INPAINT ERROR: #{e.message} ==="
+      render json: { error: e.message }, status: :service_unavailable
+    end
+  end
+
   private
 
   def set_image
@@ -235,5 +308,38 @@ class ImagesController < ApplicationController
     end
 
     loras.presence # Return nil if empty
+  end
+
+  # Parse LoRA params from inpainting form
+  def parse_inpaint_lora_params
+    loras = []
+    if params[:loras].present? && params[:loras].is_a?(Array)
+      params[:loras].each do |lora|
+        next unless lora[:key].present?
+        loras << {
+          key: lora[:key],
+          weight: lora[:weight]&.to_f || 0.8
+        }
+      end
+    end
+    loras.presence
+  end
+
+  # Check if a model supports inpainting
+  def model_supports_inpaint?(model_key)
+    # Models that support inpainting (SD 1.5 based and SDXL)
+    %w[sd-v1-5 openjourney sdxl realistic-vision dreamshaper analog-diffusion].include?(model_key)
+  end
+
+  # Get list of models that support inpainting
+  def available_inpaint_models
+    [
+      { key: 'sd-v1-5', name: 'Stable Diffusion v1.5' },
+      { key: 'openjourney', name: 'OpenJourney' },
+      { key: 'sdxl', name: 'Stable Diffusion XL' },
+      { key: 'realistic-vision', name: 'Realistic Vision v5.1' },
+      { key: 'dreamshaper', name: 'DreamShaper 8' },
+      { key: 'analog-diffusion', name: 'Analog Diffusion' }
+    ]
   end
 end

@@ -74,6 +74,40 @@ class Img2ImgRequest(BaseModel):
         }
 
 
+class InpaintRequest(BaseModel):
+    """Request schema for inpainting (selective region editing).
+
+    Note: This schema is used for documentation only.
+    Actual endpoint uses Form parameters due to file upload.
+    """
+
+    prompt: str = Field(..., min_length=1, max_length=1000, description="Text description of what to paint in masked region")
+    model_key: Optional[str] = Field("sd-v1-5", description="Model key (sd-v1-5, openjourney, sdxl, etc.)")
+    negative_prompt: Optional[str] = Field(None, max_length=1000, description="What to avoid in the image")
+    strength: Optional[float] = Field(0.8, ge=0.0, le=1.0, description="How much to change masked region (0.0-1.0)")
+    num_inference_steps: Optional[int] = Field(30, ge=10, le=100, description="Number of denoising steps")
+    guidance_scale: Optional[float] = Field(7.5, ge=1.0, le=20.0, description="Prompt adherence strength")
+    seed: Optional[int] = Field(None, ge=0, description="Random seed for reproducibility")
+    blur_mask: Optional[bool] = Field(True, description="Whether to blur mask edges for smoother blending")
+    blur_factor: Optional[int] = Field(33, ge=0, le=100, description="Gaussian blur radius for mask edges")
+    loras: Optional[List[LoraSpec]] = Field(None, max_length=3, description="LoRA adapters to apply (max 3)")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "prompt": "a beautiful sunset over mountains",
+                "model_key": "sd-v1-5",
+                "negative_prompt": "blurry, low quality, distorted",
+                "strength": 0.8,
+                "num_inference_steps": 30,
+                "guidance_scale": 7.5,
+                "blur_mask": True,
+                "blur_factor": 33,
+                "seed": 42,
+            }
+        }
+
+
 class GenerateResponse(BaseModel):
     """Response schema for successful image generation."""
 

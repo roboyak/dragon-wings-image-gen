@@ -6,6 +6,8 @@ Rails.application.routes.draw do
     member do
       get :status
       post :toggle_favorite
+      get :edit_mask
+      post :generate_inpaint
     end
     collection do
       post :enhance_prompt

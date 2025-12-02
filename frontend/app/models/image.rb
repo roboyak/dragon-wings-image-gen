@@ -1,5 +1,7 @@
 class Image < ApplicationRecord
   belongs_to :user
+  belongs_to :parent_image, class_name: 'Image', optional: true
+  has_many :child_images, class_name: 'Image', foreign_key: 'parent_image_id', dependent: :nullify
 
   # ActiveStorage attachment for init image (img2img)
   has_one_attached :init_image
@@ -15,7 +17,8 @@ class Image < ApplicationRecord
   # Generation type enum
   enum generation_type: {
     text_to_image: 'text_to_image',
-    image_to_image: 'image_to_image'
+    image_to_image: 'image_to_image',
+    inpaint: 'inpaint'
   }, _prefix: true
 
   # Validations
