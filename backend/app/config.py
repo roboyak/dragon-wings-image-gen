@@ -16,6 +16,7 @@ MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
         "ram_required_gb": 4,
         "txt2img": True,
         "img2img": True,
+        "inpaint": True,
     },
     "openjourney": {
         "model_id": "prompthero/openjourney",
@@ -28,6 +29,7 @@ MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
         "ram_required_gb": 4,
         "txt2img": True,
         "img2img": True,
+        "inpaint": True,
     },
     "sdxl": {
         "model_id": "stabilityai/stable-diffusion-xl-base-1.0",
@@ -40,6 +42,7 @@ MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
         "ram_required_gb": 12,
         "txt2img": True,
         "img2img": True,
+        "inpaint": True,
         "requires_gpu": True,
     },
     "realistic-vision": {
@@ -53,6 +56,7 @@ MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
         "ram_required_gb": 4,
         "txt2img": True,
         "img2img": True,
+        "inpaint": True,
     },
     "dreamshaper": {
         "model_id": "Lykon/dreamshaper-8",
@@ -65,6 +69,7 @@ MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
         "ram_required_gb": 4,
         "txt2img": True,
         "img2img": True,
+        "inpaint": True,
     },
     "analog-diffusion": {
         "model_id": "wavymulder/Analog-Diffusion",
@@ -77,6 +82,7 @@ MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
         "ram_required_gb": 4,
         "txt2img": True,
         "img2img": True,
+        "inpaint": True,
         "prompt_suffix": "analog style",
     },
     "flux-schnell": {
@@ -86,10 +92,11 @@ MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
         "native_resolution": 1024,
         "recommended_for": "High quality images, text in images, professional results",
         "strengths": ["Best quality", "Text rendering", "Prompt following", "Fast for its quality"],
-        "weaknesses": ["Large model (~12GB)", "Higher memory usage"],
+        "weaknesses": ["Large model (~12GB)", "Higher memory usage", "No inpainting support"],
         "ram_required_gb": 12,
         "txt2img": True,
         "img2img": False,
+        "inpaint": False,
         "pipeline_type": "flux",
     },
 }
@@ -97,6 +104,31 @@ MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
 # SD 1.5-based models that share LoRA compatibility
 SD15_COMPATIBLE_MODELS = ["sd-v1-5", "openjourney", "realistic-vision", "dreamshaper", "analog-diffusion"]
 SDXL_COMPATIBLE_MODELS = ["sdxl"]
+
+# Dedicated inpainting models (better quality than using base models)
+INPAINT_MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
+    "sd15": {
+        "model_id": "runwayml/stable-diffusion-inpainting",
+        "name": "SD 1.5 Inpainting",
+        "description": "Dedicated inpainting model for SD 1.5 base models",
+        "native_resolution": 512,
+        "compatible_base_models": SD15_COMPATIBLE_MODELS,
+    },
+    "sdxl": {
+        "model_id": "diffusers/stable-diffusion-xl-1.0-inpainting-0.1",
+        "name": "SDXL Inpainting",
+        "description": "Dedicated inpainting model for SDXL",
+        "native_resolution": 1024,
+        "compatible_base_models": SDXL_COMPATIBLE_MODELS,
+    },
+}
+
+# Default mask preprocessing settings
+INPAINT_DEFAULTS = {
+    "blur_mask": True,
+    "blur_factor": 33,  # Higher = softer edges
+    "strength": 0.8,    # How much to change masked area (0.0-1.0)
+}
 
 # Local LoRA storage directory (relative to backend root)
 LORA_LOCAL_DIR = "./loras"
@@ -234,6 +266,54 @@ class Settings(BaseSettings):
             return False
         lora_config = LORA_CONFIGS[lora_key]
         return model_key in lora_config.get("compatible_models", [])
+
+    def supports_inpaint(self, model_key: str) -> bool:
+        """Check if a model supports inpainting.
+
+        Args:
+            model_key: The model identifier (e.g., 'sd-v1-5', 'flux-schnell')
+
+        Returns:
+            True if the model supports inpainting, False otherwise
+        """
+        if model_key not in MODEL_CONFIGS:
+            return False
+        return MODEL_CONFIGS[model_key].get("inpaint", False)
+
+    def get_inpaint_model_id(self, model_key: str) -> str | None:
+        """Get the dedicated inpainting model ID for a given base model.
+
+        Args:
+            model_key: The base model identifier (e.g., 'sd-v1-5', 'sdxl')
+
+        Returns:
+            HuggingFace model ID for the inpainting model, or None if not supported
+        """
+        if not self.supports_inpaint(model_key):
+            return None
+
+        # Check which inpainting model family to use
+        if model_key in SD15_COMPATIBLE_MODELS:
+            return INPAINT_MODEL_CONFIGS["sd15"]["model_id"]
+        elif model_key in SDXL_COMPATIBLE_MODELS:
+            return INPAINT_MODEL_CONFIGS["sdxl"]["model_id"]
+
+        return None
+
+    def get_inpaint_config(self, model_key: str) -> Dict[str, Any] | None:
+        """Get the full inpainting configuration for a given base model.
+
+        Args:
+            model_key: The base model identifier
+
+        Returns:
+            Dictionary with inpainting model config, or None if not supported
+        """
+        if model_key in SD15_COMPATIBLE_MODELS:
+            return INPAINT_MODEL_CONFIGS["sd15"]
+        elif model_key in SDXL_COMPATIBLE_MODELS:
+            return INPAINT_MODEL_CONFIGS["sdxl"]
+        return None
 
     class Config:
         env_file = ".env"

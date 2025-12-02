@@ -24,12 +24,15 @@ if torch.backends.mps.is_available():
 from diffusers import (
     StableDiffusionPipeline,
     StableDiffusionImg2ImgPipeline,
+    StableDiffusionInpaintPipeline,
     StableDiffusionXLPipeline,
     StableDiffusionXLImg2ImgPipeline,
+    StableDiffusionXLInpaintPipeline,
     DPMSolverMultistepScheduler,
     FluxPipeline,
 )
-from .config import settings, LORA_CONFIGS
+from PIL import ImageFilter
+from .config import settings, LORA_CONFIGS, INPAINT_DEFAULTS
 
 logger = logging.getLogger(__name__)
 
@@ -541,6 +544,98 @@ class StableDiffusionModel:
             logger.error(f"Failed to load img2img pipeline: {e}")
             raise
 
+    def load_inpaint_model(self, model_id: str = None):
+        """Load the inpainting pipeline for a model.
+
+        Uses dedicated inpainting models (runwayml/stable-diffusion-inpainting for SD 1.5,
+        diffusers/stable-diffusion-xl-1.0-inpainting-0.1 for SDXL) for better quality.
+
+        Args:
+            model_id: Hugging Face model ID of the BASE model. The corresponding
+                     inpainting model will be loaded automatically.
+        """
+        model_id = model_id or settings.model_id
+
+        if model_id in self.model_cache and "inpaint" in self.model_cache[model_id]:
+            logger.info(f"Model {model_id} already loaded (inpaint)")
+            return
+
+        # Get model key to find the right inpainting model
+        model_key = self._get_model_key_from_id(model_id)
+        if not model_key:
+            raise ValueError(f"Unknown model ID: {model_id}")
+
+        # Check if inpainting is supported
+        if not settings.supports_inpaint(model_key):
+            raise ValueError(f"Model '{model_key}' does not support inpainting")
+
+        # Get the dedicated inpainting model ID
+        inpaint_model_id = settings.get_inpaint_model_id(model_key)
+        if not inpaint_model_id:
+            raise ValueError(f"No inpainting model found for '{model_key}'")
+
+        logger.info(f"Loading inpaint model: {inpaint_model_id} for base model: {model_id}")
+
+        try:
+            # Determine dtype based on device
+            is_sdxl = self._is_sdxl_model(model_id)
+            if self.device == "mps":
+                torch_dtype = torch.float32
+                logger.info("Using float32 for MPS to avoid VAE dtype mismatch (inpaint)")
+            else:
+                torch_dtype = torch.float16 if settings.model_precision == "fp16" else torch.float32
+
+            # Select the correct inpainting pipeline class
+            pipeline_class = StableDiffusionXLInpaintPipeline if is_sdxl else StableDiffusionInpaintPipeline
+
+            logger.info(f"Using inpaint pipeline: {pipeline_class.__name__} (SDXL={is_sdxl}, dtype={torch_dtype})")
+
+            # Load the inpainting pipeline
+            load_kwargs = {
+                "torch_dtype": torch_dtype,
+                "token": settings.hf_token,
+            }
+            # Only add safety_checker for non-SDXL models
+            if not is_sdxl:
+                load_kwargs["safety_checker"] = None
+
+            inpaint_pipe = pipeline_class.from_pretrained(inpaint_model_id, **load_kwargs)
+
+            # Move to device
+            if self.device == "cuda":
+                inpaint_pipe = inpaint_pipe.to("cuda")
+            elif self.device == "mps":
+                inpaint_pipe = inpaint_pipe.to("mps")
+            else:
+                inpaint_pipe = inpaint_pipe.to("cpu")
+
+            # Use DPM-Solver++ scheduler for faster inference
+            scheduler_config = dict(inpaint_pipe.scheduler.config)
+            scheduler_config.pop("final_sigmas_type", None)
+            scheduler_config.pop("algorithm_type", None)
+            inpaint_pipe.scheduler = DPMSolverMultistepScheduler.from_config(scheduler_config)
+
+            # Enable memory optimizations
+            if self.device in ["cuda", "mps"]:
+                inpaint_pipe.enable_attention_slicing()
+                if self.device == "cuda":
+                    try:
+                        inpaint_pipe.enable_xformers_memory_efficient_attention()
+                    except Exception as e:
+                        logger.warning(f"Could not enable xformers for inpaint: {e}")
+
+            # Cache under the BASE model ID so we can look it up consistently
+            if model_id not in self.model_cache:
+                self.model_cache[model_id] = {}
+            self.model_cache[model_id]["inpaint"] = inpaint_pipe
+            self.current_model_id = model_id
+
+            logger.info(f"Inpaint model loaded successfully for {model_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to load inpaint pipeline: {e}")
+            raise
+
     def generate_image_from_image(
         self,
         init_image: Image.Image,
@@ -675,6 +770,206 @@ class StableDiffusionModel:
 
         except Exception as e:
             logger.error(f"Failed to generate img2img: {e}")
+            raise
+
+    def preprocess_mask(
+        self,
+        mask: Image.Image,
+        target_size: tuple,
+        blur_mask: bool = True,
+        blur_factor: int = None,
+    ) -> Image.Image:
+        """Preprocess mask image for inpainting.
+
+        Args:
+            mask: PIL Image mask (white=inpaint, black=preserve)
+            target_size: (width, height) tuple to resize mask to
+            blur_mask: Whether to apply Gaussian blur for smoother edges
+            blur_factor: Blur radius (uses INPAINT_DEFAULTS if not specified)
+
+        Returns:
+            Preprocessed PIL Image in grayscale mode
+        """
+        # Convert to grayscale if needed
+        if mask.mode != "L":
+            mask = mask.convert("L")
+
+        # Resize to match target dimensions
+        if mask.size != target_size:
+            mask = mask.resize(target_size, Image.Resampling.LANCZOS)
+            logger.info(f"Resized mask from {mask.size} to {target_size}")
+
+        # Ensure dimensions are multiples of 8
+        w, h = mask.size
+        new_w = (w // 8) * 8
+        new_h = (h // 8) * 8
+        if (new_w, new_h) != (w, h):
+            mask = mask.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            logger.info(f"Adjusted mask to multiples of 8: {new_w}x{new_h}")
+
+        # Apply Gaussian blur for smoother edges
+        if blur_mask:
+            blur_factor = blur_factor or INPAINT_DEFAULTS["blur_factor"]
+            mask = mask.filter(ImageFilter.GaussianBlur(radius=blur_factor))
+            logger.info(f"Applied Gaussian blur with radius {blur_factor}")
+
+        return mask
+
+    def generate_image_inpaint(
+        self,
+        init_image: Image.Image,
+        mask_image: Image.Image,
+        prompt: str,
+        model_id: str = None,
+        strength: float = None,
+        negative_prompt: Optional[str] = None,
+        num_inference_steps: int = None,
+        guidance_scale: float = None,
+        seed: Optional[int] = None,
+        blur_mask: bool = None,
+        blur_factor: int = None,
+        progress_callback: Optional[callable] = None,
+        lora_specs: Optional[List[Dict[str, Any]]] = None,
+    ):
+        """
+        Generate an image using inpainting (selective region editing).
+
+        Args:
+            init_image: PIL Image to use as base
+            mask_image: PIL Image mask (white=inpaint, black=preserve)
+            prompt: Text description of what to paint in masked region
+            model_id: Hugging Face model ID. If None, uses settings.model_id.
+            strength: How much to transform masked region (0.0-1.0)
+            negative_prompt: What to avoid in the image
+            num_inference_steps: Number of denoising steps
+            guidance_scale: How closely to follow the prompt
+            seed: Random seed for reproducibility
+            blur_mask: Whether to blur mask edges for smoother blending
+            blur_factor: Gaussian blur radius for mask
+            progress_callback: Callback function for progress updates
+            lora_specs: Optional list of LoRA specifications
+
+        Returns:
+            PIL Image object with inpainted result
+        """
+        model_id = model_id or settings.model_id
+
+        # Load inpainting model if not already cached
+        if model_id not in self.model_cache or "inpaint" not in self.model_cache[model_id]:
+            self.load_inpaint_model(model_id)
+
+        # Use defaults from config
+        strength = strength if strength is not None else INPAINT_DEFAULTS["strength"]
+        blur_mask = blur_mask if blur_mask is not None else INPAINT_DEFAULTS["blur_mask"]
+        blur_factor = blur_factor if blur_factor is not None else INPAINT_DEFAULTS["blur_factor"]
+        num_inference_steps = num_inference_steps or settings.default_steps
+        guidance_scale = guidance_scale or settings.default_guidance_scale
+
+        # Use default negative prompt if none provided
+        if not negative_prompt:
+            negative_prompt = DEFAULT_NEGATIVE_PROMPT
+
+        logger.info(
+            f"Generating inpaint: prompt='{prompt[:50]}...', "
+            f"strength={strength}, steps={num_inference_steps}, "
+            f"guidance={guidance_scale}, seed={seed}, blur={blur_mask}, loras={lora_specs}"
+        )
+
+        try:
+            # Preprocess init image
+            width, height = init_image.size
+
+            # Resize if too large
+            max_size = 1024
+            if width > max_size or height > max_size:
+                if width > height:
+                    new_width = max_size
+                    new_height = int((max_size / width) * height)
+                else:
+                    new_height = max_size
+                    new_width = int((max_size / height) * width)
+
+                # Make sure dimensions are multiples of 8
+                new_width = (new_width // 8) * 8
+                new_height = (new_height // 8) * 8
+
+                init_image = init_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                logger.info(f"Resized init image from {width}x{height} to {new_width}x{new_height}")
+                width, height = new_width, new_height
+
+            # Ensure dimensions are multiples of 8
+            new_width = (width // 8) * 8
+            new_height = (height // 8) * 8
+            if (new_width, new_height) != (width, height):
+                init_image = init_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                logger.info(f"Adjusted init image to multiples of 8: {new_width}x{new_height}")
+                width, height = new_width, new_height
+
+            # Convert to RGB if needed
+            if init_image.mode != "RGB":
+                init_image = init_image.convert("RGB")
+
+            # Preprocess mask to match init image
+            processed_mask = self.preprocess_mask(
+                mask_image,
+                target_size=(width, height),
+                blur_mask=blur_mask,
+                blur_factor=blur_factor,
+            )
+
+            # Set seed for reproducibility
+            generator = None
+            if seed is not None:
+                generator = torch.Generator(device=self.device).manual_seed(seed)
+
+            # Get the cached inpainting pipeline
+            inpaint_pipe = self.model_cache[model_id]["inpaint"]
+
+            # Apply LoRAs if specified
+            trigger_words = []
+            if lora_specs:
+                model_key = self._get_model_key_from_id(model_id)
+                if model_key:
+                    trigger_words = self.apply_loras(inpaint_pipe, lora_specs, model_key)
+                else:
+                    logger.warning(f"Could not determine model_key for {model_id}, skipping LoRA application")
+
+            # Prepend trigger words to prompt if any
+            if trigger_words:
+                trigger_prefix = ", ".join(trigger_words) + ", "
+                prompt = trigger_prefix + prompt
+                logger.info(f"Prepended trigger words to prompt: {trigger_prefix}")
+
+            # Create progress callback
+            def step_callback(pipe_instance, step, timestep, callback_kwargs):
+                try:
+                    if progress_callback:
+                        progress = (step + 1) / num_inference_steps * 100
+                        progress_callback(progress)
+                except (IndexError, RuntimeError) as e:
+                    logger.debug(f"Callback step {step} handled: {e}")
+                return callback_kwargs
+
+            # Generate inpainted image
+            result = inpaint_pipe(
+                prompt=prompt,
+                image=init_image,
+                mask_image=processed_mask,
+                negative_prompt=negative_prompt,
+                num_inference_steps=num_inference_steps,
+                guidance_scale=guidance_scale,
+                strength=strength,
+                generator=generator,
+                callback_on_step_end=step_callback if progress_callback else None,
+            )
+
+            image = result.images[0]
+            logger.info("Inpaint generation successful")
+
+            return image
+
+        except Exception as e:
+            logger.error(f"Failed to generate inpaint: {e}")
             raise
 
     def unload_model(self, model_id: str = None):

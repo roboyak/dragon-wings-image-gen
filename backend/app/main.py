@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, File, UploadFile, F
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response
 from contextlib import asynccontextmanager
 
 from .config import settings, MODEL_CONFIGS, LORA_CONFIGS
@@ -21,6 +22,7 @@ from .schemas import (
     HealthResponse,
     ErrorResponse,
     Img2ImgRequest,
+    InpaintRequest,
     LoraSpec,
 )
 
@@ -72,8 +74,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Custom StaticFiles with CORS headers for canvas compatibility
+class CORSStaticFiles(StaticFiles):
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            async def send_with_cors(message):
+                if message["type"] == "http.response.start":
+                    headers = list(message.get("headers", []))
+                    headers.append((b"access-control-allow-origin", b"*"))
+                    headers.append((b"access-control-allow-methods", b"GET, OPTIONS"))
+                    headers.append((b"access-control-allow-headers", b"*"))
+                    message["headers"] = headers
+                await send(message)
+            await super().__call__(scope, receive, send_with_cors)
+        else:
+            await super().__call__(scope, receive, send)
+
 # Mount static files directory for serving generated images
-app.mount("/images", StaticFiles(directory=settings.output_dir), name="images")
+app.mount("/images", CORSStaticFiles(directory=settings.output_dir), name="images")
 
 
 def generate_image_task(
@@ -221,6 +239,88 @@ def generate_img2img_task(
         jobs[job_id].update({
             "status": "failed",
             "message": f"Img2img generation failed: {str(e)}",
+        })
+
+
+def generate_inpaint_task(
+    job_id: str,
+    init_image: Image.Image,
+    mask_image: Image.Image,
+    prompt: str,
+    model_key: str,
+    strength: float,
+    negative_prompt: str | None,
+    num_inference_steps: int,
+    guidance_scale: float,
+    seed: int | None,
+    blur_mask: bool,
+    blur_factor: int,
+    lora_specs: list | None = None,
+):
+    """Background task for inpainting generation."""
+    try:
+        logger.info(f"Starting inpaint generation for job {job_id} with model {model_key}")
+        if lora_specs:
+            logger.info(f"  LoRAs: {lora_specs}")
+        jobs[job_id]["status"] = "processing"
+        jobs[job_id]["progress_percent"] = 0
+
+        import time
+        start_time = time.time()
+
+        # Convert model_key to model_id
+        model_id = settings.get_model_id_from_key(model_key)
+
+        # Progress callback to update job status
+        def update_progress(progress: float):
+            jobs[job_id]["progress_percent"] = round(progress, 1)
+
+        # Generate inpainted image
+        image = sd_model.generate_image_inpaint(
+            init_image=init_image,
+            mask_image=mask_image,
+            prompt=prompt,
+            model_id=model_id,
+            strength=strength,
+            negative_prompt=negative_prompt,
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+            seed=seed,
+            blur_mask=blur_mask,
+            blur_factor=blur_factor,
+            progress_callback=update_progress,
+            lora_specs=lora_specs,
+        )
+
+        generation_time = time.time() - start_time
+
+        # Save image to file
+        filename = f"{job_id}.png"
+        filepath = os.path.join(settings.output_dir, filename)
+        image.save(filepath)
+
+        # Convert to base64
+        buffered = BytesIO()
+        image.save(buffered, format="PNG")
+        image_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+        # Update job status
+        jobs[job_id].update({
+            "status": "completed",
+            "image_url": f"/images/{filename}",
+            "image_base64": image_base64,
+            "generation_time": round(generation_time, 2),
+            "message": "Inpaint generated successfully",
+            "progress_percent": 100,
+        })
+
+        logger.info(f"Inpaint job {job_id} completed in {generation_time:.2f}s")
+
+    except Exception as e:
+        logger.error(f"Inpaint job {job_id} failed: {e}")
+        jobs[job_id].update({
+            "status": "failed",
+            "message": f"Inpaint generation failed: {str(e)}",
         })
 
 
@@ -405,6 +505,170 @@ async def generate_img2img(
     )
 
     logger.info(f"Img2img job {job_id} queued: '{prompt[:50]}...', model={model_key}, strength={strength}")
+
+    return GenerateResponse(**jobs[job_id])
+
+
+@app.post("/api/generate_inpaint", response_model=GenerateResponse, tags=["Generation"])
+async def generate_inpaint(
+    init_image: UploadFile = File(..., description="Source image to edit"),
+    mask_image: UploadFile = File(..., description="Mask image (white=inpaint, black=preserve)"),
+    prompt: str = Form(..., description="Text description of what to paint in masked region"),
+    model_key: str = Form("sd-v1-5", description="Model key (sd-v1-5, openjourney, sdxl, etc.)"),
+    negative_prompt: str = Form("", description="What to avoid in the image"),
+    strength: float = Form(0.8, description="How much to change masked region (0.0-1.0)"),
+    num_inference_steps: int = Form(30, description="Number of denoising steps"),
+    guidance_scale: float = Form(7.5, description="Prompt adherence strength"),
+    seed: int | None = Form(None, description="Random seed for reproducibility"),
+    blur_mask: bool = Form(True, description="Whether to blur mask edges"),
+    blur_factor: int = Form(33, description="Gaussian blur radius for mask"),
+    loras: str | None = Form(None, description="JSON array of LoRA specs [{key, weight}]"),
+    background_tasks: BackgroundTasks = None,
+):
+    """
+    Generate an image using inpainting (selective region editing).
+
+    Upload a source image and a mask image. White areas in the mask will be
+    regenerated based on the prompt, while black areas are preserved.
+
+    The generation happens asynchronously in the background.
+    Use the returned job_id to check status via /api/status/{job_id}.
+
+    Args:
+        init_image: Source image file (PNG, JPG, WebP)
+        mask_image: Mask image file (white=inpaint, black=preserve)
+        prompt: Text description of what to paint in masked region
+        model_key: Model to use (must support inpainting)
+        negative_prompt: What to avoid in the image
+        strength: How much to change masked region (0.0-1.0)
+        num_inference_steps: Number of denoising steps (10-100)
+        guidance_scale: How closely to follow prompt (1.0-20.0)
+        seed: Random seed for reproducibility
+        blur_mask: Whether to blur mask edges for smoother blending
+        blur_factor: Gaussian blur radius for mask (0-100)
+        loras: JSON array of LoRA specs, e.g., '[{"key": "watercolor", "weight": 0.8}]'
+    """
+    import json
+
+    # Validate model supports inpainting
+    if not settings.supports_inpaint(model_key):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Model '{model_key}' does not support inpainting. Use sd-v1-5, openjourney, sdxl, or other SD-based models.",
+        )
+
+    # Validate file types
+    allowed_types = ["image/png", "image/jpeg", "image/jpg", "image/webp"]
+    if init_image.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid init_image type. Allowed: {', '.join(allowed_types)}",
+        )
+    if mask_image.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid mask_image type. Allowed: {', '.join(allowed_types)}",
+        )
+
+    # Validate strength parameter
+    if not (0.0 <= strength <= 1.0):
+        raise HTTPException(
+            status_code=400,
+            detail="Strength must be between 0.0 and 1.0",
+        )
+
+    # Validate blur_factor
+    if not (0 <= blur_factor <= 100):
+        raise HTTPException(
+            status_code=400,
+            detail="blur_factor must be between 0 and 100",
+        )
+
+    # Parse LoRA specs if provided
+    lora_specs = None
+    if loras:
+        try:
+            lora_list = json.loads(loras)
+            lora_specs = []
+            for lora in lora_list:
+                lora_key = lora.get("key")
+                if not lora_key:
+                    continue
+                # Check compatibility
+                if not settings.is_lora_compatible(lora_key, model_key):
+                    compatible_loras = settings.get_compatible_loras(model_key)
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"LoRA '{lora_key}' is not compatible with model '{model_key}'. Compatible: {', '.join(compatible_loras) if compatible_loras else 'none'}",
+                    )
+                lora_config = settings.get_lora_config(lora_key)
+                weight = lora.get("weight", lora_config["default_weight"])
+                lora_specs.append({"key": lora_key, "weight": weight})
+        except json.JSONDecodeError:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid loras format. Must be valid JSON array.",
+            )
+
+    # Read and process uploaded images
+    try:
+        init_bytes = await init_image.read()
+        mask_bytes = await mask_image.read()
+
+        # Validate sizes (max 10MB each)
+        max_size_mb = 10
+        if len(init_bytes) > max_size_mb * 1024 * 1024:
+            raise HTTPException(
+                status_code=400,
+                detail=f"init_image too large. Max size: {max_size_mb}MB",
+            )
+        if len(mask_bytes) > max_size_mb * 1024 * 1024:
+            raise HTTPException(
+                status_code=400,
+                detail=f"mask_image too large. Max size: {max_size_mb}MB",
+            )
+
+        init_img = Image.open(BytesIO(init_bytes))
+        mask_img = Image.open(BytesIO(mask_bytes))
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid image file: {str(e)}",
+        )
+
+    # Generate unique job ID
+    job_id = str(uuid.uuid4())
+
+    # Initialize job status
+    jobs[job_id] = {
+        "job_id": job_id,
+        "status": "pending",
+        "prompt": prompt,
+        "message": "Inpaint job queued for processing",
+    }
+
+    # Queue background task
+    background_tasks.add_task(
+        generate_inpaint_task,
+        job_id=job_id,
+        init_image=init_img,
+        mask_image=mask_img,
+        prompt=prompt,
+        model_key=model_key,
+        strength=strength,
+        negative_prompt=negative_prompt if negative_prompt else None,
+        num_inference_steps=num_inference_steps,
+        guidance_scale=guidance_scale,
+        seed=seed,
+        blur_mask=blur_mask,
+        blur_factor=blur_factor,
+        lora_specs=lora_specs,
+    )
+
+    logger.info(f"Inpaint job {job_id} queued: '{prompt[:50]}...', model={model_key}, strength={strength}, blur={blur_mask}")
 
     return GenerateResponse(**jobs[job_id])
 

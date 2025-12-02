@@ -1,0 +1,278 @@
+<%# Phase 6: Mask Editor for Inpainting %>
+
+<%# Load Fabric.js directly (UMD module, not ES module compatible) %>
+<script src="https://cdn.jsdelivr.net/npm/fabric@5.3.0/dist/fabric.min.js"></script>
+
+<div class="min-h-screen flex flex-col" style="background-color: hsl(var(--background));"
+     data-controller="mask-editor"
+     data-mask-editor-image-url-value="<%= @image.image_url %>"
+     data-mask-editor-image-id-value="<%= @image.id %>"
+     data-mask-editor-generate-url-value="<%= generate_inpaint_image_path(@image) %>"
+     data-mask-editor-csrf-value="<%= form_authenticity_token %>">
+
+  <%# Header with back button %>
+  <div class="flex items-center justify-between px-4 py-3 border-b" style="border-color: hsl(var(--border));">
+    <%= link_to image_path(@image), class: "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:bg-white/5", style: "color: hsl(var(--muted-foreground));" do %>
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+      </svg>
+      Back to Image
+    <% end %>
+
+    <h1 class="text-lg font-semibold" style="color: hsl(var(--foreground));">
+      Edit & Inpaint
+    </h1>
+
+    <div class="flex items-center gap-2">
+      <%# Undo/Redo %>
+      <button data-action="click->mask-editor#undo"
+              data-mask-editor-target="undoBtn"
+              class="p-2 rounded-lg transition-colors hover:bg-white/10 disabled:opacity-30"
+              style="color: hsl(var(--muted-foreground));"
+              title="Undo (Ctrl+Z)"
+              disabled>
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
+        </svg>
+      </button>
+      <button data-action="click->mask-editor#redo"
+              data-mask-editor-target="redoBtn"
+              class="p-2 rounded-lg transition-colors hover:bg-white/10 disabled:opacity-30"
+              style="color: hsl(var(--muted-foreground));"
+              title="Redo (Ctrl+Y)"
+              disabled>
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"></path>
+        </svg>
+      </button>
+
+      <div class="w-px h-6 bg-white/20 mx-1"></div>
+
+      <%# Clear mask %>
+      <button data-action="click->mask-editor#clearMask"
+              class="p-2 rounded-lg transition-colors hover:bg-white/10"
+              style="color: hsl(var(--muted-foreground));"
+              title="Clear Mask">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <%# Main content area %>
+  <div class="flex-1 flex overflow-hidden">
+    <%# Canvas Area %>
+    <div class="flex-1 flex items-center justify-center p-4 overflow-hidden" style="background-color: hsl(var(--background));">
+      <div class="relative" data-mask-editor-target="canvasContainer">
+        <%# Loading state %>
+        <div data-mask-editor-target="loading" class="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg z-10">
+          <div class="text-center">
+            <div class="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-2"
+                 style="border-color: hsl(var(--primary)); border-top-color: transparent;"></div>
+            <p class="text-sm" style="color: hsl(var(--muted-foreground));">Loading image...</p>
+          </div>
+        </div>
+
+        <%# Fabric.js Canvas %>
+        <canvas id="mask-canvas" data-mask-editor-target="canvas" class="rounded-lg shadow-2xl"></canvas>
+
+        <%# Mask overlay indicator %>
+        <div data-mask-editor-target="maskIndicator"
+             class="absolute bottom-2 left-2 px-2 py-1 rounded text-xs font-medium hidden"
+             style="background-color: hsl(var(--primary) / 0.8); color: white;">
+          Mask Active
+        </div>
+      </div>
+    </div>
+
+    <%# Right Panel - Tools & Settings %>
+    <aside class="w-80 flex-shrink-0 border-l overflow-y-auto" style="background-color: hsl(var(--card)); border-color: hsl(var(--border));">
+      <div class="p-4 space-y-4">
+
+        <%# Brush Tools %>
+        <div>
+          <span class="text-xs uppercase tracking-wide mb-3 block" style="color: hsl(var(--muted-foreground));">Brush Tool</span>
+          <div class="flex gap-2">
+            <button data-action="click->mask-editor#setTool"
+                    data-tool="brush"
+                    data-mask-editor-target="brushBtn"
+                    class="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg font-medium transition-colors tool-active"
+                    style="background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+              </svg>
+              Brush
+            </button>
+            <button data-action="click->mask-editor#setTool"
+                    data-tool="eraser"
+                    data-mask-editor-target="eraserBtn"
+                    class="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg font-medium transition-colors"
+                    style="background-color: hsl(var(--secondary)); color: hsl(var(--secondary-foreground));">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+              Eraser
+            </button>
+          </div>
+        </div>
+
+        <%# Brush Size %>
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs uppercase tracking-wide" style="color: hsl(var(--muted-foreground));">Brush Size</span>
+            <span data-mask-editor-target="brushSizeValue" class="text-sm font-mono" style="color: hsl(var(--foreground));">30px</span>
+          </div>
+          <input type="range"
+                 data-action="input->mask-editor#updateBrushSize"
+                 data-mask-editor-target="brushSize"
+                 min="5"
+                 max="100"
+                 value="30"
+                 class="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                 style="background-color: hsl(var(--secondary));">
+        </div>
+
+        <%# Mask Opacity %>
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs uppercase tracking-wide" style="color: hsl(var(--muted-foreground));">Mask Opacity</span>
+            <span data-mask-editor-target="maskOpacityValue" class="text-sm font-mono" style="color: hsl(var(--foreground));">70%</span>
+          </div>
+          <input type="range"
+                 data-action="input->mask-editor#updateMaskOpacity"
+                 data-mask-editor-target="maskOpacity"
+                 min="20"
+                 max="100"
+                 value="70"
+                 class="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                 style="background-color: hsl(var(--secondary));">
+        </div>
+
+        <div class="border-t pt-4" style="border-color: hsl(var(--border));">
+          <span class="text-xs uppercase tracking-wide mb-3 block" style="color: hsl(var(--muted-foreground));">Generation Settings</span>
+
+          <%# Prompt %>
+          <div class="mb-3">
+            <label class="text-xs mb-1 block" style="color: hsl(var(--muted-foreground));">Prompt (what to paint)</label>
+            <textarea data-mask-editor-target="prompt"
+                      rows="3"
+                      class="w-full px-3 py-2 rounded-lg text-sm resize-none"
+                      style="background-color: hsl(var(--background)); color: hsl(var(--foreground)); border: 1px solid hsl(var(--border));"
+                      placeholder="Describe what should appear in the masked area..."><%= @image.prompt %></textarea>
+          </div>
+
+          <%# Negative Prompt %>
+          <div class="mb-3">
+            <label class="text-xs mb-1 block" style="color: hsl(var(--muted-foreground));">Negative Prompt</label>
+            <textarea data-mask-editor-target="negativePrompt"
+                      rows="2"
+                      class="w-full px-3 py-2 rounded-lg text-sm resize-none"
+                      style="background-color: hsl(var(--background)); color: hsl(var(--foreground)); border: 1px solid hsl(var(--border));"
+                      placeholder="What to avoid..."><%= @image.negative_prompt %></textarea>
+          </div>
+
+          <%# Model Selection %>
+          <div class="mb-3">
+            <label class="text-xs mb-1 block" style="color: hsl(var(--muted-foreground));">Model</label>
+            <select data-mask-editor-target="modelKey"
+                    class="w-full px-3 py-2 rounded-lg text-sm"
+                    style="background-color: hsl(var(--background)); color: hsl(var(--foreground)); border: 1px solid hsl(var(--border));">
+              <% @available_models.each do |model| %>
+                <option value="<%= model[:key] %>" <%= 'selected' if model[:key] == @image.model_key %>><%= model[:name] %></option>
+              <% end %>
+            </select>
+          </div>
+
+          <%# Strength %>
+          <div class="mb-3">
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs" style="color: hsl(var(--muted-foreground));">Strength</label>
+              <span data-mask-editor-target="strengthValue" class="text-xs font-mono" style="color: hsl(var(--foreground));">0.8</span>
+            </div>
+            <input type="range"
+                   data-action="input->mask-editor#updateStrength"
+                   data-mask-editor-target="strength"
+                   min="0.1"
+                   max="1.0"
+                   step="0.05"
+                   value="0.8"
+                   class="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                   style="background-color: hsl(var(--secondary));">
+            <p class="text-xs mt-1" style="color: hsl(var(--muted-foreground));">Higher = more change</p>
+          </div>
+
+          <%# Steps %>
+          <div class="mb-3">
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs" style="color: hsl(var(--muted-foreground));">Steps</label>
+              <span data-mask-editor-target="stepsValue" class="text-xs font-mono" style="color: hsl(var(--foreground));">30</span>
+            </div>
+            <input type="range"
+                   data-action="input->mask-editor#updateSteps"
+                   data-mask-editor-target="steps"
+                   min="10"
+                   max="50"
+                   value="30"
+                   class="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                   style="background-color: hsl(var(--secondary));">
+          </div>
+        </div>
+
+        <%# Generate Button %>
+        <div class="pt-4 border-t" style="border-color: hsl(var(--border));">
+          <button data-action="click->mask-editor#generate"
+                  data-mask-editor-target="generateBtn"
+                  class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50"
+                  style="background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
+            <span data-mask-editor-target="generateBtnText">Generate Inpaint</span>
+          </button>
+
+          <%# Status message %>
+          <div data-mask-editor-target="statusMessage" class="mt-2 text-center text-sm hidden" style="color: hsl(var(--muted-foreground));"></div>
+        </div>
+
+        <%# Tips %>
+        <div class="p-3 rounded-lg" style="background-color: hsl(var(--background));">
+          <p class="text-xs font-medium mb-2" style="color: hsl(var(--primary));">Tips</p>
+          <ul class="text-xs space-y-1" style="color: hsl(var(--muted-foreground));">
+            <li>Paint over areas you want to change</li>
+            <li>White areas = will be regenerated</li>
+            <li>Use eraser to refine the mask</li>
+            <li>Ctrl+Z to undo, Ctrl+Y to redo</li>
+          </ul>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<style>
+  /* Custom range slider styling */
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: hsl(var(--primary));
+    cursor: pointer;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: hsl(var(--primary));
+    cursor: pointer;
+    border: none;
+  }
+
+  .tool-active {
+    background-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary-foreground)) !important;
+  }
+</style>
