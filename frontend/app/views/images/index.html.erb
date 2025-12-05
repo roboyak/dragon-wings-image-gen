@@ -188,6 +188,35 @@
             <div id="lora-hidden-inputs"></div>
           </div>
 
+          <!-- BATCH SIZE Section -->
+          <div class="settings-section">
+            <div class="flex items-center gap-1 mb-2">
+              <p class="text-[10px] font-semibold uppercase tracking-wider" style="color: hsl(var(--muted-foreground));">Batch Size</p>
+              <span class="tooltip-trigger cursor-help" title="Generate multiple variations with different seeds">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M12 16v-4m0-4h.01"/></svg>
+              </span>
+            </div>
+
+            <!-- Batch Size Toggle Buttons -->
+            <div class="flex gap-2 mb-2">
+              <button type="button" id="batch-btn-1" onclick="selectBatchSize(1)" data-batch-size="1" class="batch-size-btn flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-all" style="border-color: hsl(var(--primary)); color: hsl(var(--primary)); background-color: hsl(var(--primary) / 0.1);">
+                1
+              </button>
+              <button type="button" id="batch-btn-2" onclick="selectBatchSize(2)" data-batch-size="2" class="batch-size-btn flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-all" style="border-color: hsl(var(--border)); color: hsl(var(--muted-foreground)); background-color: transparent;">
+                2
+              </button>
+              <button type="button" id="batch-btn-4" onclick="selectBatchSize(4)" data-batch-size="4" class="batch-size-btn flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-all" style="border-color: hsl(var(--border)); color: hsl(var(--muted-foreground)); background-color: transparent;">
+                4
+              </button>
+            </div>
+
+            <!-- Help Text -->
+            <p class="text-[11px]" style="color: hsl(var(--muted-foreground));">Generate multiple variations with different seeds</p>
+
+            <!-- Hidden input to store selected batch size -->
+            <input type="hidden" id="batch_size" name="batch_size" value="1">
+          </div>
+
           <!-- DIMENSIONS Section -->
           <div class="settings-section">
             <p class="text-[10px] font-semibold uppercase tracking-wider mb-2" style="color: hsl(var(--muted-foreground));">Dimensions</p>
@@ -1308,6 +1337,24 @@
     // Update button styles
     document.querySelectorAll('.aspect-btn').forEach(btn => {
       if (btn.dataset.ratio === ratio) {
+        btn.style.borderColor = 'hsl(var(--primary))';
+        btn.style.color = 'hsl(var(--primary))';
+        btn.style.backgroundColor = 'hsl(var(--primary) / 0.1)';
+      } else {
+        btn.style.borderColor = 'hsl(var(--border))';
+        btn.style.color = 'hsl(var(--muted-foreground))';
+        btn.style.backgroundColor = 'transparent';
+      }
+    });
+  }
+
+  function selectBatchSize(size) {
+    // Update hidden input
+    document.getElementById('batch_size').value = size;
+
+    // Update button styles
+    document.querySelectorAll('.batch-size-btn').forEach(btn => {
+      if (parseInt(btn.dataset.batchSize) === size) {
         btn.style.borderColor = 'hsl(var(--primary))';
         btn.style.color = 'hsl(var(--primary))';
         btn.style.backgroundColor = 'hsl(var(--primary) / 0.1)';
