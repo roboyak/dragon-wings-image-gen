@@ -72,7 +72,7 @@
             </svg>
           </button>
           <% if image.seed.present? %>
-            <button onclick="event.stopPropagation(); regenerateWithSeed(<%= image.seed %>, '<%= image.prompt.gsub("'", "\\\\'") %>')"
+            <button onclick="event.stopPropagation(); regenerateWithSeed(<%= image.seed %>, <%= image.prompt.to_json %>)"
                     class="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors hover:bg-white/20"
                     style="background-color: hsl(var(--muted)); color: hsl(var(--foreground));"
                     title="Regenerate with seed <%= image.seed %>"

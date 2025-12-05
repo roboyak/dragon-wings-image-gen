@@ -29,7 +29,7 @@ class GenerateRequest(BaseModel):
     guidance_scale: Optional[float] = Field(7.5, ge=1.0, le=20.0, description="Prompt adherence strength")
     width: Optional[int] = Field(512, ge=256, le=1024, description="Image width (multiple of 8)")
     height: Optional[int] = Field(512, ge=256, le=1024, description="Image height (multiple of 8)")
-    seed: Optional[int] = Field(None, ge=0, description="Random seed for reproducibility")
+    seed: Optional[int] = Field(None, ge=0, le=2147483647, description="Random seed for reproducibility (0 to 2^31-1)")
     loras: Optional[List[LoraSpec]] = Field(None, max_length=3, description="LoRA adapters to apply (max 3)")
 
     class Config:
@@ -59,7 +59,7 @@ class Img2ImgRequest(BaseModel):
     strength: Optional[float] = Field(0.75, ge=0.0, le=1.0, description="Transformation strength (0.0=keep original, 1.0=complete transform)")
     num_inference_steps: Optional[int] = Field(50, ge=10, le=100, description="Number of denoising steps")
     guidance_scale: Optional[float] = Field(7.5, ge=1.0, le=20.0, description="Prompt adherence strength")
-    seed: Optional[int] = Field(None, ge=0, description="Random seed for reproducibility")
+    seed: Optional[int] = Field(None, ge=0, le=2147483647, description="Random seed for reproducibility (0 to 2^31-1)")
 
     class Config:
         json_schema_extra = {
@@ -87,7 +87,7 @@ class InpaintRequest(BaseModel):
     strength: Optional[float] = Field(0.8, ge=0.0, le=1.0, description="How much to change masked region (0.0-1.0)")
     num_inference_steps: Optional[int] = Field(30, ge=10, le=100, description="Number of denoising steps")
     guidance_scale: Optional[float] = Field(7.5, ge=1.0, le=20.0, description="Prompt adherence strength")
-    seed: Optional[int] = Field(None, ge=0, description="Random seed for reproducibility")
+    seed: Optional[int] = Field(None, ge=0, le=2147483647, description="Random seed for reproducibility (0 to 2^31-1)")
     blur_mask: Optional[bool] = Field(True, description="Whether to blur mask edges for smoother blending")
     blur_factor: Optional[int] = Field(33, ge=0, le=100, description="Gaussian blur radius for mask edges")
     loras: Optional[List[LoraSpec]] = Field(None, max_length=3, description="LoRA adapters to apply (max 3)")

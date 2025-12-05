@@ -32,10 +32,10 @@ class User < ApplicationRecord
     generations_today < generation_quota
   end
 
-  # Increment generation counter
-  def increment_generations!
+  # Increment generation counter (supports batch generation)
+  def increment_generations!(count = 1)
     reset_quota_if_needed
-    update!(generations_today: generations_today + 1)
+    update!(generations_today: generations_today + count)
   end
 
   # Reset quota if date changed
