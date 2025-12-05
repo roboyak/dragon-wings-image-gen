@@ -390,12 +390,17 @@ async def generate_image(
     # Generate unique job ID
     job_id = str(uuid.uuid4())
 
+    # Generate random seed if not provided
+    import random
+    actual_seed = request.seed if request.seed is not None else random.randint(0, 2**32 - 1)
+
     # Initialize job status
     jobs[job_id] = {
         "job_id": job_id,
         "status": "pending",
         "prompt": request.prompt,
         "message": "Job queued for processing",
+        "seed": actual_seed,
     }
 
     # Queue background task
@@ -409,7 +414,7 @@ async def generate_image(
         guidance_scale=request.guidance_scale,
         width=request.width,
         height=request.height,
-        seed=request.seed,
+        seed=actual_seed,
         lora_specs=lora_specs,
     )
 
@@ -482,12 +487,17 @@ async def generate_img2img(
     # Generate unique job ID
     job_id = str(uuid.uuid4())
 
+    # Generate random seed if not provided
+    import random
+    actual_seed = seed if seed is not None else random.randint(0, 2**32 - 1)
+
     # Initialize job status
     jobs[job_id] = {
         "job_id": job_id,
         "status": "pending",
         "prompt": prompt,
         "message": "Img2img job queued for processing",
+        "seed": actual_seed,
     }
 
     # Queue background task
@@ -501,7 +511,7 @@ async def generate_img2img(
         negative_prompt=negative_prompt if negative_prompt else None,
         num_inference_steps=num_inference_steps,
         guidance_scale=guidance_scale,
-        seed=seed,
+        seed=actual_seed,
     )
 
     logger.info(f"Img2img job {job_id} queued: '{prompt[:50]}...', model={model_key}, strength={strength}")
@@ -642,12 +652,17 @@ async def generate_inpaint(
     # Generate unique job ID
     job_id = str(uuid.uuid4())
 
+    # Generate random seed if not provided
+    import random
+    actual_seed = seed if seed is not None else random.randint(0, 2**32 - 1)
+
     # Initialize job status
     jobs[job_id] = {
         "job_id": job_id,
         "status": "pending",
         "prompt": prompt,
         "message": "Inpaint job queued for processing",
+        "seed": actual_seed,
     }
 
     # Queue background task
@@ -662,7 +677,7 @@ async def generate_inpaint(
         negative_prompt=negative_prompt if negative_prompt else None,
         num_inference_steps=num_inference_steps,
         guidance_scale=guidance_scale,
-        seed=seed,
+        seed=actual_seed,
         blur_mask=blur_mask,
         blur_factor=blur_factor,
         lora_specs=lora_specs,
@@ -690,6 +705,7 @@ async def get_status(job_id: str):
         message=job.get("message"),
         generation_time=job.get("generation_time"),
         progress_percent=job.get("progress_percent"),
+        seed=job.get("seed"),
     )
 
 

@@ -117,6 +117,7 @@ class GenerateResponse(BaseModel):
     image_base64: Optional[str] = Field(None, description="Base64-encoded image data (when completed)")
     message: Optional[str] = Field(None, description="Status message or error description")
     generation_time: Optional[float] = Field(None, description="Time taken to generate image in seconds")
+    seed: Optional[int] = Field(None, description="Seed used for generation (for reproducibility)")
 
 
 class StatusResponse(BaseModel):
@@ -128,6 +129,7 @@ class StatusResponse(BaseModel):
     message: Optional[str] = None
     generation_time: Optional[float] = None
     progress_percent: Optional[float] = Field(None, description="Generation progress 0-100")
+    seed: Optional[int] = Field(None, description="Seed used for generation (for reproducibility)")
 
 
 class HealthResponse(BaseModel):
