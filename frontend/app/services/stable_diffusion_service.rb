@@ -7,7 +7,7 @@ class StableDiffusionService
   class StatusCheckError < ServiceError; end
 
   # Generate a new image (text-to-image)
-  def self.generate(prompt:, model_key: 'sd-v1-5', negative_prompt: nil, num_inference_steps: 30, guidance_scale: 7.5, width: 512, height: 512, loras: nil)
+  def self.generate(prompt:, model_key: 'sd-v1-5', negative_prompt: nil, num_inference_steps: 30, guidance_scale: 7.5, width: 512, height: 512, seed: nil, loras: nil)
     body = {
       prompt: prompt,
       model_key: model_key,
@@ -18,6 +18,9 @@ class StableDiffusionService
       height: height
     }
 
+    # Add seed if provided
+    body[:seed] = seed if seed.present?
+
     # Add LoRA specs if provided (array of {key:, weight:} hashes)
     if loras.present?
       body[:loras] = loras.map { |l| { key: l[:key], weight: l[:weight]&.to_f } }
@@ -26,8 +29,7 @@ class StableDiffusionService
     response = post(
       '/api/generate',
       body: body.to_json,
-      headers: { 'Content-Type' => 'application/json' },
-      timeout: 10
+      headers: { 'Content-Type' => 'application/json' }
     )
 
     if response.success?

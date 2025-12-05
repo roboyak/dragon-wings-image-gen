@@ -32,16 +32,33 @@ class ImagesController < ApplicationController
 
   # POST /images
   def create
-    @image = current_user.images.new(image_params)
+    # Get batch size (default: 1)
+    batch_size = params[:batch_size]&.to_i || 1
+    batch_size = batch_size.clamp(1, 4) # Limit to max 4
 
     # Determine generation mode
     generation_mode = params[:generation_mode] || 'text_to_image'
-    @image.generation_type = generation_mode
 
-    begin
-      Rails.logger.info "=== CALLING STABLE DIFFUSION API (#{generation_mode}) ==="
+    # Get base seed (for incremental batch seeds)
+    base_seed = params[:seed]&.to_i
 
-      if generation_mode == 'image_to_image'
+    @images = []
+    batch_size.times do |i|
+      @image = current_user.images.new(image_params)
+      @image.generation_type = generation_mode
+
+      # Calculate seed for this batch item
+      if base_seed
+        @image.seed = base_seed + i
+      else
+        # Let backend generate random seeds
+        @image.seed = nil
+      end
+
+      begin
+        Rails.logger.info "=== CALLING STABLE DIFFUSION API (#{generation_mode}) [Batch #{i+1}/#{batch_size}] ==="
+
+        if generation_mode == 'image_to_image'
         # Image-to-image generation
         unless params[:init_image].present?
           raise StableDiffusionService::GenerationError, "Initial image is required for img2img generation"
@@ -74,42 +91,47 @@ class ImagesController < ApplicationController
           guidance_scale: @image.guidance_scale || 7.5,
           width: @image.width || 512,
           height: @image.height || 512,
+          seed: @image.seed,
           loras: loras
         )
       end
 
       Rails.logger.info "=== API RESPONSE: #{api_response.inspect} ==="
 
-      # Update image with job ID from API
+      # Update image with job ID and seed from API
       @image.job_id = api_response['job_id']
       @image.status = api_response['status'] || 'pending'
-      Rails.logger.info "=== SET JOB_ID: #{@image.job_id} ==="
+      @image.seed = api_response['seed'] if api_response['seed'] # Store actual seed used
+      Rails.logger.info "=== SET JOB_ID: #{@image.job_id}, SEED: #{@image.seed} ==="
 
       if @image.save
-        # Increment user's generation counter
-        current_user.increment_generations!
-
-        respond_to do |format|
-          format.html { redirect_to images_path, notice: 'Image generation started!' }
-          format.json { render json: @image, status: :created }
-        end
+        @images << @image
+        Rails.logger.info "=== Batch item #{i+1}/#{batch_size} saved with ID: #{@image.id} ==="
       else
-        respond_to do |format|
-          format.html { render :index, status: :unprocessable_entity }
-          format.json { render json: @image.errors, status: :unprocessable_entity }
-        end
+        Rails.logger.error "=== Failed to save batch item #{i+1}: #{@image.errors.full_messages} ==="
       end
 
-    rescue StableDiffusionService::GenerationError => e
-      Rails.logger.error "=== GENERATION ERROR: #{e.message} ==="
-      Rails.logger.error e.backtrace.join("\n")
-      @image.status = 'failed'
-      @image.metadata = { error: e.message }
-      @image.save(validate: false) if @image.job_id.present?
+      rescue StableDiffusionService::GenerationError => e
+        Rails.logger.error "=== GENERATION ERROR (batch #{i+1}): #{e.message} ==="
+        @image.status = 'failed'
+        @image.metadata = { error: e.message }
+        @image.save(validate: false)
+        @images << @image
+      end
+    end
 
-      respond_to do |format|
-        format.html { redirect_to images_path, alert: "Generation failed: #{e.message}" }
-        format.json { render json: { error: e.message }, status: :service_unavailable }
+    # Increment user's generation counter by batch size
+    current_user.increment_generations!(batch_size)
+
+    # Respond with batch results
+    respond_to do |format|
+      if @images.any? && @images.all?(&:persisted?)
+        notice_text = batch_size > 1 ? "Started generating #{batch_size} images!" : 'Image generation started!'
+        format.html { redirect_to images_path, notice: notice_text }
+        format.json { render json: @images, status: :created }
+      else
+        format.html { redirect_to images_path, alert: 'Failed to start generation' }
+        format.json { render json: { errors: @images.map(&:errors) }, status: :unprocessable_entity }
       end
     end
   end

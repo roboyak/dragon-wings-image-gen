@@ -391,8 +391,9 @@ async def generate_image(
     job_id = str(uuid.uuid4())
 
     # Generate random seed if not provided
+    # Use 2^31-1 max to fit Rails 4-byte signed integer
     import random
-    actual_seed = request.seed if request.seed is not None else random.randint(0, 2**32 - 1)
+    actual_seed = request.seed if request.seed is not None else random.randint(0, 2**31 - 1)
 
     # Initialize job status
     jobs[job_id] = {
@@ -488,8 +489,9 @@ async def generate_img2img(
     job_id = str(uuid.uuid4())
 
     # Generate random seed if not provided
+    # Use 2^31-1 max to fit Rails 4-byte signed integer
     import random
-    actual_seed = seed if seed is not None else random.randint(0, 2**32 - 1)
+    actual_seed = seed if seed is not None else random.randint(0, 2**31 - 1)
 
     # Initialize job status
     jobs[job_id] = {
@@ -653,8 +655,9 @@ async def generate_inpaint(
     job_id = str(uuid.uuid4())
 
     # Generate random seed if not provided
+    # Use 2^31-1 max to fit Rails 4-byte signed integer
     import random
-    actual_seed = seed if seed is not None else random.randint(0, 2**32 - 1)
+    actual_seed = seed if seed is not None else random.randint(0, 2**31 - 1)
 
     # Initialize job status
     jobs[job_id] = {
