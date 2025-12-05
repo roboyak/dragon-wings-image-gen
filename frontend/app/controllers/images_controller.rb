@@ -1,6 +1,6 @@
 class ImagesController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_image, only: [:show, :status, :toggle_favorite, :edit_mask, :generate_inpaint]
+  before_action :set_image, only: [:show, :status, :toggle_favorite, :edit_mask, :generate_inpaint, :download]
   before_action :check_quota, only: [:create]
 
   # GET /images
@@ -253,6 +253,52 @@ class ImagesController < ApplicationController
     rescue StableDiffusionService::GenerationError => e
       Rails.logger.error "=== INPAINT ERROR: #{e.message} ==="
       render json: { error: e.message }, status: :service_unavailable
+    end
+  end
+
+  # GET /images/:id/download
+  # Server-side download endpoint that fetches image from backend and serves with proper headers
+  def download
+    # Validate image is complete and has image_url
+    unless @image.completed?
+      redirect_to @image, alert: "Image is not ready for download yet (status: #{@image.status_display})"
+      return
+    end
+
+    unless @image.image_url.present?
+      redirect_to @image, alert: "Image URL is not available"
+      return
+    end
+
+    begin
+      # Fetch image from backend with timeout
+      response = HTTParty.get(
+        @image.image_url,
+        timeout: 30,
+        follow_redirects: true
+      )
+
+      # Check if request was successful
+      unless response.success?
+        Rails.logger.error "=== DOWNLOAD ERROR: HTTP #{response.code} from #{@image.image_url} ==="
+        redirect_to @image, alert: "Failed to download image (HTTP #{response.code})"
+        return
+      end
+
+      # Send the image data to the browser with attachment headers
+      send_data response.body,
+                type: 'image/png',
+                disposition: 'attachment',
+                filename: "dragon-wings-#{@image.id}.png"
+
+    rescue HTTParty::Error, Net::OpenTimeout, Net::ReadTimeout => e
+      Rails.logger.error "=== DOWNLOAD ERROR: #{e.class} - #{e.message} ==="
+      Rails.logger.error e.backtrace.join("\n")
+      redirect_to @image, alert: "Failed to download image: Backend unavailable"
+    rescue StandardError => e
+      Rails.logger.error "=== UNEXPECTED DOWNLOAD ERROR: #{e.class} - #{e.message} ==="
+      Rails.logger.error e.backtrace.join("\n")
+      redirect_to @image, alert: "Failed to download image: #{e.message}"
     end
   end
 
