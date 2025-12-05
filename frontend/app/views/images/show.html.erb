@@ -13,14 +13,15 @@
     <div class="flex items-center gap-2">
       <%# Quick actions in header %>
       <% if @image.completed? && @image.image_url.present? %>
-        <button onclick="downloadCurrentImage()"
-                class="p-2 rounded-lg transition-colors hover:bg-white/10"
-                style="color: hsl(var(--muted-foreground));"
-                title="Download">
+        <%= link_to download_image_path(@image),
+            data: { turbo: false },
+            class: "p-2 rounded-lg transition-colors hover:bg-white/10",
+            style: "color: hsl(var(--muted-foreground));",
+            title: "Download" do %>
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
           </svg>
-        </button>
+        <% end %>
       <% end %>
     </div>
   </div>
@@ -213,14 +214,15 @@
         <div class="pt-4 space-y-2">
           <% if @image.completed? && @image.image_url.present? %>
             <%# Download Button %>
-            <button onclick="downloadCurrentImage()"
-                    class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-colors"
-                    style="background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));">
+            <%= link_to download_image_path(@image),
+                data: { turbo: false },
+                class: "w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-colors",
+                style: "background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));" do %>
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
               </svg>
               Download
-            </button>
+            <% end %>
 
             <%# Edit & Inpaint Button %>
             <%= link_to edit_mask_image_path(@image),
@@ -283,26 +285,8 @@
     csrfToken: document.querySelector('meta[name="csrf-token"]')?.content
   };
 
-  function downloadCurrentImage() {
-    if (!imageData.imageUrl) return;
-
-    fetch(imageData.imageUrl)
-      .then(response => response.blob())
-      .then(blob => {
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `dragon-wings-${imageData.id}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(link.href);
-      })
-      .catch(err => {
-        console.error('Download failed:', err);
-        // Fallback: open in new tab
-        window.open(imageData.imageUrl, '_blank');
-      });
-  }
+  // DEPRECATED: Downloads now handled by server-side endpoint
+  // function downloadCurrentImage() - replaced with link_to download_image_path
 
   function copyPrompt() {
     navigator.clipboard.writeText(imageData.prompt).then(() => {

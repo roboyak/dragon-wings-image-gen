@@ -1630,26 +1630,9 @@
     }
   });
 
-  // Download image helper
-  function downloadImage(url, filename) {
-    showInfoToast('Downloading', 'Preparing your image...');
-    fetch(url)
-      .then(response => response.blob())
-      .then(blob => {
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(link.href);
-        showSuccessToast('Downloaded', filename);
-      })
-      .catch(err => {
-        console.error('Download failed:', err);
-        showErrorToast('Download Failed', 'Please try again.');
-      });
-  }
+  // DEPRECATED: Downloads now handled by server-side endpoint
+  // function downloadImage(url, filename) - replaced with link_to download_image_path
+  // This function is no longer used as download buttons now use direct links
 
   // Remix image - fills prompt bar with original prompt
   function remixImage(imageId) {
