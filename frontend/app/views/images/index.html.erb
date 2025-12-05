@@ -1754,6 +1754,23 @@
       });
   }
 
+  // Regenerate with specific seed (for batch variations)
+  function regenerateWithSeed(seed, prompt) {
+    const promptInput = document.getElementById('prompt_input') || document.getElementById('prompt-input');
+    const seedInput = document.querySelector('input[name="image[seed]"]');
+
+    if (promptInput) {
+      promptInput.value = prompt;
+    }
+    if (seedInput) {
+      seedInput.value = seed;
+    }
+
+    // Scroll to top to show prompt bar
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showSuccessToast('Seed Loaded', `Using seed ${seed} for reproducible generation`);
+  }
+
   // Retry failed generation
   function retryGeneration(imageId) {
     if (!confirm('Retry this generation?')) return;

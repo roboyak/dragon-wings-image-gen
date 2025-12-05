@@ -25,6 +25,16 @@
         </div>
       <% end %>
 
+      <%# Seed Display (bottom-left corner, always visible if seed exists) %>
+      <% if image.seed.present? %>
+        <div class="absolute bottom-2 left-2 px-2 py-1 rounded text-[10px] font-mono font-medium" style="background-color: hsl(var(--muted) / 0.9); color: hsl(var(--muted-foreground));">
+          <svg class="w-2.5 h-2.5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="opacity: 0.7;">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path>
+          </svg>
+          <%= image.seed %>
+        </div>
+      <% end %>
+
       <%# Hover Overlay with Gradient %>
       <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-200 flex flex-col justify-end p-3">
         <%# Prompt Text %>
@@ -61,6 +71,17 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
             </svg>
           </button>
+          <% if image.seed.present? %>
+            <button onclick="event.stopPropagation(); regenerateWithSeed(<%= image.seed %>, '<%= image.prompt.gsub("'", "\\\\'") %>')"
+                    class="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors hover:bg-white/20"
+                    style="background-color: hsl(var(--muted)); color: hsl(var(--foreground));"
+                    title="Regenerate with seed <%= image.seed %>"
+                    aria-label="Regenerate with same seed">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path>
+              </svg>
+            </button>
+          <% end %>
           <button onclick="event.stopPropagation(); toggleFavorite(<%= image.id %>, this)"
                   class="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors hover:bg-white/20"
                   style="background-color: <%= image.favorite? ? 'hsl(var(--destructive))' : 'hsl(var(--muted))' %>; color: <%= image.favorite? ? 'white' : 'hsl(var(--foreground))' %>;"
