@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_12_02_002357) do
+ActiveRecord::Schema[7.1].define(version: 2025_12_05_145817) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -63,8 +63,10 @@ ActiveRecord::Schema[7.1].define(version: 2025_12_02_002357) do
     t.string "model_key"
     t.boolean "favorite", default: false, null: false
     t.integer "parent_image_id"
+    t.string "lora_key"
     t.index ["generation_type"], name: "index_images_on_generation_type"
     t.index ["job_id"], name: "index_images_on_job_id", unique: true
+    t.index ["lora_key"], name: "index_images_on_lora_key"
     t.index ["parent_image_id"], name: "index_images_on_parent_image_id"
     t.index ["status"], name: "index_images_on_status"
     t.index ["user_id", "created_at"], name: "index_images_on_user_id_and_created_at"

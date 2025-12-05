@@ -319,7 +319,8 @@ class ImagesController < ApplicationController
       :height,
       :seed,
       :generation_type,
-      :strength
+      :strength,
+      :lora_key
     )
   end
 
