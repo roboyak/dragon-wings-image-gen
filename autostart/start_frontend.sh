@@ -41,24 +41,6 @@ PSQL="/opt/homebrew/bin/psql"
 CREATEDB="/opt/homebrew/bin/createdb"
 BREW="/opt/homebrew/bin/brew"
 
-# Ensure PostgreSQL is running
-echo "🔍 Checking PostgreSQL..."
-if ! pgrep -x postgres > /dev/null; then
-    echo "   Starting PostgreSQL..."
-    $BREW services start postgresql@15 2>/dev/null || true
-    sleep 3
-fi
-
-# Create database if it doesn't exist (idempotent)
-echo "🔍 Checking database..."
-if ! $PSQL -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw dragon_wings_image_gen_production; then
-    echo "   Creating database..."
-    $CREATEDB dragon_wings_image_gen_production 2>/dev/null || echo "   (database may already exist)"
-    echo "✅ Database ready"
-else
-    echo "✅ Database exists"
-fi
-
 # Link shared database.yml if it exists
 if [ -f "$SHARED_DIR/database.yml" ]; then
     ln -sf "$SHARED_DIR/database.yml" "$FRONTEND_ROOT/config/database.yml"
@@ -66,6 +48,10 @@ fi
 
 # Navigate to Rails root
 cd "$FRONTEND_ROOT"
+
+# Create database if it doesn't exist (idempotent via Rails)
+echo "🔍 Creating database if needed..."
+bundle exec rails db:create RAILS_ENV=production 2>/dev/null || echo "   Database already exists"
 
 # Run database migrations
 echo "Running database migrations..."
