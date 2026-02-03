@@ -74,6 +74,12 @@ Rails.application.configure do
   # Do not dump schema after migrations.
   config.active_record.dump_schema_after_migration = false
 
+  # Disable eager loading to avoid Zeitwerk/Devise issues in deployment
+  config.eager_load = false
+
+  # Allow Tailscale Funnel hostname for public HTTPS access
+  config.hosts << "dwingss-mac-mini-2.tail624919.ts.net"
+
   # Enable DNS rebinding protection and other `Host` header attacks.
   # config.hosts = [
   #   "example.com",     # Allow requests from example.com
