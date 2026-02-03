@@ -10,6 +10,12 @@ LOG_DIR="/opt/dragon/logs"
 
 echo "🐉 Starting Image Gen Frontend..."
 
+# Load RVM
+if [ -f ~/.rvm/scripts/rvm ]; then
+    source ~/.rvm/scripts/rvm
+    rvm use 3.1.6
+fi
+
 # Set environment variables
 export RAILS_ENV=production
 export RAILS_SERVE_STATIC_FILES=true
