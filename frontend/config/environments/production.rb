@@ -79,6 +79,9 @@ Rails.application.configure do
 
   # Allow Tailscale Funnel hostname for public HTTPS access
   config.hosts << "dwingss-mac-mini-2.tail624919.ts.net"
+  config.hosts << "localhost"
+  config.hosts << "127.0.0.1"
+  config.hosts << "100.85.174.124"  # Tailscale IP
 
   # Enable DNS rebinding protection and other `Host` header attacks.
   # config.hosts = [
