@@ -36,6 +36,24 @@ for i in {1..30}; do
     sleep 1
 done
 
+# Ensure PostgreSQL is running
+echo "🔍 Checking PostgreSQL..."
+if ! pgrep -x postgres > /dev/null; then
+    echo "   Starting PostgreSQL..."
+    brew services start postgresql@15
+    sleep 3
+fi
+
+# Create database if it doesn't exist (idempotent)
+echo "🔍 Checking database..."
+if ! psql -lqt | cut -d \| -f 1 | grep -qw dragon_wings_image_gen_production; then
+    echo "   Creating database..."
+    createdb dragon_wings_image_gen_production
+    echo "✅ Database created"
+else
+    echo "✅ Database exists"
+fi
+
 # Link shared database.yml if it exists
 if [ -f "$SHARED_DIR/database.yml" ]; then
     ln -sf "$SHARED_DIR/database.yml" "$FRONTEND_ROOT/config/database.yml"
