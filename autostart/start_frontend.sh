@@ -57,6 +57,10 @@ bundle exec rails db:create RAILS_ENV=production 2>/dev/null || echo "   Databas
 echo "Running database migrations..."
 bundle exec rails db:migrate RAILS_ENV=production
 
+# Precompile assets for production
+echo "Precompiling assets..."
+bundle exec rails assets:precompile RAILS_ENV=production
+
 # Start Puma
 echo "Starting Rails server..."
 nohup bundle exec puma \
