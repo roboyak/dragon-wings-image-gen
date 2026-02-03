@@ -77,6 +77,9 @@ Rails.application.configure do
   # Disable eager loading to avoid Zeitwerk/Devise issues in deployment
   config.eager_load = false
 
+  # ActiveStorage configuration for uploaded images (img2img, inpainting)
+  config.active_storage.service = :local
+
   # Allow Tailscale Funnel hostname for public HTTPS access
   config.hosts << "dwingss-mac-mini-2.tail624919.ts.net"
   config.hosts << "localhost"
