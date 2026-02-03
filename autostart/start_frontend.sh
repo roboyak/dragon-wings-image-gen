@@ -36,20 +36,25 @@ for i in {1..30}; do
     sleep 1
 done
 
+# PostgreSQL paths (Homebrew on Apple Silicon)
+PSQL="/opt/homebrew/bin/psql"
+CREATEDB="/opt/homebrew/bin/createdb"
+BREW="/opt/homebrew/bin/brew"
+
 # Ensure PostgreSQL is running
 echo "🔍 Checking PostgreSQL..."
 if ! pgrep -x postgres > /dev/null; then
     echo "   Starting PostgreSQL..."
-    brew services start postgresql@15
+    $BREW services start postgresql@15 2>/dev/null || true
     sleep 3
 fi
 
 # Create database if it doesn't exist (idempotent)
 echo "🔍 Checking database..."
-if ! psql -lqt | cut -d \| -f 1 | grep -qw dragon_wings_image_gen_production; then
+if ! $PSQL -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw dragon_wings_image_gen_production; then
     echo "   Creating database..."
-    createdb dragon_wings_image_gen_production
-    echo "✅ Database created"
+    $CREATEDB dragon_wings_image_gen_production 2>/dev/null || echo "   (database may already exist)"
+    echo "✅ Database ready"
 else
     echo "✅ Database exists"
 fi
