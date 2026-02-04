@@ -175,6 +175,83 @@ def add_energy_metadata_jpeg(metadata: dict):
     return exif_bytes
 
 
+def add_watermark(image, metadata: dict):
+    """
+    Add Dragon Wings watermark to image (for free tier downloads).
+    Matches mockup: logo in bottom-right, energy text to left of logo.
+
+    Args:
+        image: PIL Image object (RGB)
+        metadata: Dict with energy info
+
+    Returns:
+        PIL Image with watermark
+    """
+    from PIL import ImageDraw, ImageFont
+
+    # Create a copy to avoid modifying original
+    watermarked = image.copy()
+
+    # Load and resize logo
+    logo_path = Path(__file__).parent / "assets" / "watermark_logo.png"
+    if not logo_path.exists():
+        logger.warning(f"Watermark logo not found at {logo_path}")
+        return watermarked
+
+    logo = Image.open(logo_path)
+
+    # Resize logo to 70px diameter (matching mockup)
+    logo_size = 70
+    logo = logo.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
+
+    # Ensure logo has alpha channel
+    if logo.mode != 'RGBA':
+        logo = logo.convert('RGBA')
+
+    # Make logo semi-transparent (70% opacity)
+    logo_with_alpha = Image.new('RGBA', logo.size)
+    for x in range(logo.width):
+        for y in range(logo.height):
+            r, g, b, a = logo.getpixel((x, y))
+            logo_with_alpha.putpixel((x, y), (r, g, b, int(a * 0.7)))
+
+    # Position logo in bottom-right corner
+    logo_x = image.width - logo_size - 15
+    logo_y = image.height - logo_size - 15
+
+    # Paste logo
+    watermarked.paste(logo_with_alpha, (logo_x, logo_y), logo_with_alpha)
+
+    # Add energy text to the left of logo
+    draw = ImageDraw.Draw(watermarked)
+    energy_text = f"{metadata.get('energy_wh', 0)}Wh"
+
+    # Use default font, size 28
+    try:
+        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 28)
+    except:
+        font = ImageFont.load_default()
+
+    # Position text to left of logo
+    text_bbox = draw.textbbox((0, 0), energy_text, font=font)
+    text_width = text_bbox[2] - text_bbox[0]
+    text_height = text_bbox[3] - text_bbox[1]
+
+    text_x = logo_x - text_width - 15
+    text_y = logo_y + (logo_size - text_height) // 2
+
+    # Draw text with semi-transparent shadow for readability
+    shadow_offset = 2
+    draw.text((text_x + shadow_offset, text_y + shadow_offset), energy_text,
+              fill=(0, 0, 0, 180), font=font)
+    draw.text((text_x, text_y), energy_text, fill=(255, 255, 255, 230), font=font)
+
+    return watermarked
+
+
+def set_finder_comment(filepath: str, metadata: dict):
+
+
 def set_finder_comment(filepath: str, metadata: dict):
     """
     Set macOS Finder comment with energy metadata.
@@ -300,12 +377,15 @@ def generate_image_task(
             rgb_image.paste(image_temp, mask=image_temp.split()[-1] if image_temp.mode in ('RGBA', 'LA') else None)
             jpeg_image = rgb_image
 
-        # Add EXIF metadata to JPEG
+        # Save clean JPEG with EXIF (for paid users)
         exif_bytes = add_energy_metadata_jpeg(metadata)
         jpeg_image.save(jpeg_filepath, format="JPEG", quality=95, exif=exif_bytes)
 
-        # Note: Finder comments removed - they don't survive downloads and slow down generation
-        # EXIF metadata in JPEG is sufficient and portable
+        # Also save watermarked version (for free tier users)
+        watermarked_filename = f"{job_id}_watermark.jpg"
+        watermarked_filepath = os.path.join(settings.output_dir, watermarked_filename)
+        watermarked_image = add_watermark(jpeg_image, metadata)
+        watermarked_image.save(watermarked_filepath, format="JPEG", quality=95, exif=exif_bytes)
 
         # Convert to base64 (PNG for preview)
         buffered = BytesIO()
@@ -422,12 +502,15 @@ def generate_img2img_task(
             rgb_image.paste(image_temp, mask=image_temp.split()[-1] if image_temp.mode in ('RGBA', 'LA') else None)
             jpeg_image = rgb_image
 
-        # Add EXIF metadata to JPEG
+        # Save clean JPEG with EXIF (for paid users)
         exif_bytes = add_energy_metadata_jpeg(metadata)
         jpeg_image.save(jpeg_filepath, format="JPEG", quality=95, exif=exif_bytes)
 
-        # Note: Finder comments removed - they don't survive downloads and slow down generation
-        # EXIF metadata in JPEG is sufficient and portable
+        # Also save watermarked version (for free tier users)
+        watermarked_filename = f"{job_id}_watermark.jpg"
+        watermarked_filepath = os.path.join(settings.output_dir, watermarked_filename)
+        watermarked_image = add_watermark(jpeg_image, metadata)
+        watermarked_image.save(watermarked_filepath, format="JPEG", quality=95, exif=exif_bytes)
 
         # Convert to base64 (PNG for preview)
         buffered = BytesIO()
@@ -554,12 +637,15 @@ def generate_inpaint_task(
             rgb_image.paste(image_temp, mask=image_temp.split()[-1] if image_temp.mode in ('RGBA', 'LA') else None)
             jpeg_image = rgb_image
 
-        # Add EXIF metadata to JPEG
+        # Save clean JPEG with EXIF (for paid users)
         exif_bytes = add_energy_metadata_jpeg(metadata)
         jpeg_image.save(jpeg_filepath, format="JPEG", quality=95, exif=exif_bytes)
 
-        # Note: Finder comments removed - they don't survive downloads and slow down generation
-        # EXIF metadata in JPEG is sufficient and portable
+        # Also save watermarked version (for free tier users)
+        watermarked_filename = f"{job_id}_watermark.jpg"
+        watermarked_filepath = os.path.join(settings.output_dir, watermarked_filename)
+        watermarked_image = add_watermark(jpeg_image, metadata)
+        watermarked_image.save(watermarked_filepath, format="JPEG", quality=95, exif=exif_bytes)
 
         # Convert to base64 (PNG for preview)
         buffered = BytesIO()

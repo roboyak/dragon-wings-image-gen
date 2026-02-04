@@ -272,8 +272,12 @@ class ImagesController < ApplicationController
 
     begin
       # Fetch JPEG version (with EXIF metadata) instead of PNG
-      # Convert /images/job_id.png -> /images/job_id.jpg
-      jpeg_url = @image.image_url.sub('.png', '.jpg')
+      # Free tier gets watermarked version, paid tiers get clean version
+      if current_user.free?
+        jpeg_url = @image.image_url.sub('.png', '_watermark.jpg')
+      else
+        jpeg_url = @image.image_url.sub('.png', '.jpg')
+      end
 
       response = HTTParty.get(
         jpeg_url,
