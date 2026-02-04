@@ -304,9 +304,8 @@ def generate_image_task(
         exif_bytes = add_energy_metadata_jpeg(metadata)
         jpeg_image.save(jpeg_filepath, format="JPEG", quality=95, exif=exif_bytes)
 
-        # Set macOS Finder comment on both files
-        set_finder_comment(filepath, metadata)
-        set_finder_comment(jpeg_filepath, metadata)
+        # Note: Finder comments removed - they don't survive downloads and slow down generation
+        # EXIF metadata in JPEG is sufficient and portable
 
         # Convert to base64 (PNG for preview)
         buffered = BytesIO()
@@ -427,9 +426,8 @@ def generate_img2img_task(
         exif_bytes = add_energy_metadata_jpeg(metadata)
         jpeg_image.save(jpeg_filepath, format="JPEG", quality=95, exif=exif_bytes)
 
-        # Set macOS Finder comment on both files
-        set_finder_comment(filepath, metadata)
-        set_finder_comment(jpeg_filepath, metadata)
+        # Note: Finder comments removed - they don't survive downloads and slow down generation
+        # EXIF metadata in JPEG is sufficient and portable
 
         # Convert to base64 (PNG for preview)
         buffered = BytesIO()
@@ -560,9 +558,8 @@ def generate_inpaint_task(
         exif_bytes = add_energy_metadata_jpeg(metadata)
         jpeg_image.save(jpeg_filepath, format="JPEG", quality=95, exif=exif_bytes)
 
-        # Set macOS Finder comment on both files
-        set_finder_comment(filepath, metadata)
-        set_finder_comment(jpeg_filepath, metadata)
+        # Note: Finder comments removed - they don't survive downloads and slow down generation
+        # EXIF metadata in JPEG is sufficient and portable
 
         # Convert to base64 (PNG for preview)
         buffered = BytesIO()
