@@ -32,7 +32,7 @@
 
         <%# Action Buttons %>
         <div class="flex items-center gap-2">
-          <button onclick="event.stopPropagation(); window.open('<%= image_path(image) %>', '_blank')"
+          <button onclick="event.stopPropagation(); window.location.href='<%= image_path(image) %>'"
                   class="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors"
                   style="background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));"
                   title="View Details"
