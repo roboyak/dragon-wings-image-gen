@@ -27,9 +27,10 @@
 
       <%# Energy Usage Indicator (bottom-right) %>
       <% if image.energy_consumption_wh %>
-        <div class="absolute bottom-2 right-2 px-2 py-1 rounded-full text-xs font-medium backdrop-blur-sm"
+        <div class="absolute bottom-3 right-3 px-2.5 py-1 rounded-full text-xs font-medium backdrop-blur-sm flex items-center gap-1"
              style="background-color: hsl(var(--primary) / 0.9); color: white;">
-          ⚡ <%= image.energy_consumption_wh %> Wh
+          <span>⚡</span>
+          <span><%= image.energy_consumption_wh %> Wh</span>
         </div>
       <% end %>
 
