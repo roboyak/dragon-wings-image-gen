@@ -15,15 +15,29 @@ case "$1" in
         echo ""
 
         # Start backend first
-        echo "[1/2] Starting backend (FastAPI)..."
+        echo "[1/3] Starting backend (FastAPI)..."
         "$SCRIPT_DIR/start_backend.sh"
 
         # Wait for backend to initialize
         sleep 5
 
         # Start frontend
-        echo "[2/2] Starting frontend (Rails)..."
+        echo "[2/3] Starting frontend (Rails)..."
         "$SCRIPT_DIR/start_frontend.sh"
+
+        # Wait for frontend to be ready
+        sleep 3
+
+        # Start Tailscale Funnel for public HTTPS access
+        echo "[3/3] Starting Tailscale Funnel (public HTTPS)..."
+        if command -v tailscale &> /dev/null; then
+            tailscale funnel --bg 3000 2>/dev/null || \
+            /Applications/Tailscale.app/Contents/MacOS/Tailscale funnel --bg 3000 2>/dev/null || \
+            echo "   ⚠️  Could not start Tailscale Funnel (run manually if needed)"
+            echo "   ✅ Funnel started - public HTTPS active"
+        else
+            echo "   ⚠️  Tailscale not found - skipping Funnel (local only)"
+        fi
 
         echo ""
         echo "✅ All Image Generator services started"
