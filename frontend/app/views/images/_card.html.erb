@@ -10,7 +10,7 @@
   <%# Completed Image %>
   <% if image.completed? && image.image_url.present? %>
     <div class="relative overflow-hidden" style="aspect-ratio: 1 / 1;">
-      <%= image_tag image.image_url,
+      <%= image_tag image.display_url,
           alt: image.prompt.truncate(50),
           class: "w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 image-fade-in",
           loading: "lazy",

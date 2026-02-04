@@ -71,6 +71,51 @@ class Image < ApplicationRecord
     (updated_at - created_at).round(2)
   end
 
+  # Calculate energy consumption in Wh
+  # Formula: (65W / concurrent_images) × (generation_time_seconds / 3600)
+  def energy_consumption_wh
+    return nil unless generation_time && generation_time > 0
+
+    # Default to 1 concurrent image (can be made configurable later)
+    concurrent_images = 1
+    base_wattage = 65.0
+
+    power_watts = base_wattage / concurrent_images
+    time_hours = generation_time / 3600.0
+
+    (power_watts * time_hours).round(2)
+  end
+
+  # Determine energy source based on time of day
+  # Returns "Solar" if generated during daylight hours, "Stored Solar" at night
+  #
+  # Future: Call dragon_minds_os API endpoint for real-time energy state:
+  #   GET /api/energy/status => { source: "solar" | "battery" | "grid",
+  #                               battery_charging: true/false,
+  #                               solar_wings_deployed: true/false }
+  def energy_source
+    return "Solar" unless created_at
+
+    # TODO: Replace with API call to dragon_minds_os controller
+    # response = HTTP.get("http://#{dragon_mind_host}:#{port}/api/energy/status")
+    # return response[:source] == "battery" ? "Stored Solar" : "Solar"
+
+    # Simple daytime check: 6 AM to 6 PM local time
+    hour = created_at.hour
+
+    if hour >= 6 && hour < 18
+      "Solar"
+    else
+      "Stored Solar"
+    end
+  end
+
+  # Get URL for displaying image (proxied through Rails for external access)
+  def display_url
+    return nil unless image_url.present?
+    Rails.application.routes.url_helpers.serve_image_path(self)
+  end
+
   private
 
   def generate_job_id

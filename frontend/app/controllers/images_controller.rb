@@ -1,6 +1,6 @@
 class ImagesController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_image, only: [:show, :status, :toggle_favorite, :edit_mask, :generate_inpaint, :download]
+  before_action :set_image, only: [:show, :status, :toggle_favorite, :edit_mask, :generate_inpaint, :download, :serve]
   before_action :check_quota, only: [:create]
 
   # GET /images
@@ -271,25 +271,28 @@ class ImagesController < ApplicationController
     end
 
     begin
-      # Fetch image from backend with timeout
+      # Fetch JPEG version (with EXIF metadata) instead of PNG
+      # Convert /images/job_id.png -> /images/job_id.jpg
+      jpeg_url = @image.image_url.sub('.png', '.jpg')
+
       response = HTTParty.get(
-        @image.image_url,
+        jpeg_url,
         timeout: 30,
         follow_redirects: true
       )
 
       # Check if request was successful
       unless response.success?
-        Rails.logger.error "=== DOWNLOAD ERROR: HTTP #{response.code} from #{@image.image_url} ==="
+        Rails.logger.error "=== DOWNLOAD ERROR: HTTP #{response.code} from #{jpeg_url} ==="
         redirect_to @image, alert: "Failed to download image (HTTP #{response.code})"
         return
       end
 
-      # Send the image data to the browser with attachment headers
+      # Send the JPEG image data with EXIF metadata
       send_data response.body,
-                type: 'image/png',
+                type: 'image/jpeg',
                 disposition: 'attachment',
-                filename: "dragon-wings-#{@image.id}.png"
+                filename: "dragon-wings-#{@image.id}.jpg"
 
     rescue HTTParty::Error, Net::OpenTimeout, Net::ReadTimeout => e
       Rails.logger.error "=== DOWNLOAD ERROR: #{e.class} - #{e.message} ==="
@@ -299,6 +302,43 @@ class ImagesController < ApplicationController
       Rails.logger.error "=== UNEXPECTED DOWNLOAD ERROR: #{e.class} - #{e.message} ==="
       Rails.logger.error e.backtrace.join("\n")
       redirect_to @image, alert: "Failed to download image: #{e.message}"
+    end
+  end
+
+  # Serve image inline through Rails (for ngrok/external access)
+  def serve
+    unless @image.completed?
+      head :not_found
+      return
+    end
+
+    unless @image.image_url.present?
+      head :not_found
+      return
+    end
+
+    begin
+      # Fetch image from backend
+      response = HTTParty.get(
+        @image.image_url,
+        timeout: 30,
+        follow_redirects: true
+      )
+
+      unless response.success?
+        Rails.logger.error "=== SERVE ERROR: HTTP #{response.code} from #{@image.image_url} ==="
+        head :not_found
+        return
+      end
+
+      # Send the image data inline for display
+      send_data response.body,
+                type: 'image/png',
+                disposition: 'inline'
+
+    rescue StandardError => e
+      Rails.logger.error "=== SERVE ERROR: #{e.class} - #{e.message} ==="
+      head :not_found
     end
   end
 

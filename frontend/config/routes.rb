@@ -9,6 +9,7 @@ Rails.application.routes.draw do
       get :edit_mask
       post :generate_inpaint
       get :download
+      get :serve  # Proxy image through Rails for ngrok/external access
     end
     collection do
       post :enhance_prompt

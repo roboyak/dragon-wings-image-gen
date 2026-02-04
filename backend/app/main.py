@@ -3,9 +3,12 @@ import os
 import uuid
 import base64
 import logging
+import subprocess
 from io import BytesIO
 from pathlib import Path
-from PIL import Image
+from datetime import datetime
+from PIL import Image, PngImagePlugin
+import piexif
 from fastapi import FastAPI, HTTPException, BackgroundTasks, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -94,6 +97,115 @@ class CORSStaticFiles(StaticFiles):
 app.mount("/images", CORSStaticFiles(directory=settings.output_dir), name="images")
 
 
+def add_energy_metadata(image, metadata: dict):
+    """
+    Add Dragon Wings energy metadata to PNG image.
+
+    Args:
+        image: PIL Image object
+        metadata: Dict containing energy and generation info
+
+    Returns:
+        PngInfo object with embedded metadata
+    """
+    pnginfo = PngImagePlugin.PngInfo()
+
+    # Dragon Wings custom metadata
+    pnginfo.add_text("Dragon-Wings-Unit", metadata.get("unit", "DW1.24"))
+    pnginfo.add_text("Generation-Time", f"{metadata.get('generation_time', 0)}s")
+    pnginfo.add_text("Energy-Consumption", f"{metadata.get('energy_wh', 0)} Wh")
+    pnginfo.add_text("Energy-Source", metadata.get('energy_source', 'Solar'))
+    pnginfo.add_text("Generation-Timestamp", metadata.get('timestamp', datetime.utcnow().isoformat()))
+
+    # AI Generation parameters
+    pnginfo.add_text("AI-Model", metadata.get('model_key', 'unknown'))
+    pnginfo.add_text("AI-Prompt", metadata.get('prompt', ''))
+    if metadata.get('negative_prompt'):
+        pnginfo.add_text("AI-Negative-Prompt", metadata['negative_prompt'])
+    pnginfo.add_text("AI-Steps", str(metadata.get('num_inference_steps', 0)))
+    pnginfo.add_text("AI-Guidance", str(metadata.get('guidance_scale', 0)))
+    pnginfo.add_text("AI-Seed", str(metadata.get('seed', 'random')))
+    pnginfo.add_text("AI-Width", str(metadata.get('width', 512)))
+    pnginfo.add_text("AI-Height", str(metadata.get('height', 512)))
+
+    return pnginfo
+
+
+def add_energy_metadata_jpeg(metadata: dict):
+    """
+    Add Dragon Wings energy metadata to JPEG image using EXIF.
+
+    Args:
+        metadata: Dict containing energy and generation info
+
+    Returns:
+        EXIF bytes ready to embed in JPEG
+    """
+    # Create EXIF data
+    exif_dict = {
+        "0th": {},
+        "Exif": {},
+        "GPS": {},
+        "1st": {},
+        "thumbnail": None,
+    }
+
+    # Add Dragon Wings energy data to UserComment (shows in Finder!)
+    energy_comment = f"""🌞 Dragon Wings {metadata.get('unit', 'DW1.24')}
+⚡ Energy: {metadata.get('energy_wh', 0)} Wh from {metadata.get('energy_source', 'Solar')}
+⏱️ Generation: {metadata.get('generation_time', 0)}s
+🤖 Model: {metadata.get('model_key', 'unknown')}
+📐 Size: {metadata.get('width', 512)}×{metadata.get('height', 512)}
+🎨 {metadata.get('prompt', '')[:100]}"""
+
+    exif_dict["Exif"][piexif.ExifIFD.UserComment] = energy_comment.encode('utf-8')
+
+    # Add other standard EXIF fields
+    # Make = Energy consumption (shows first in Finder)
+    exif_dict["0th"][piexif.ImageIFD.Make] = f"Energy: {metadata.get('energy_wh', 0)} Wh from {metadata.get('energy_source', 'Solar')}".encode('utf-8')
+    # Model = Dragon Wings unit ID
+    exif_dict["0th"][piexif.ImageIFD.Model] = f"Dragon Wings {metadata.get('unit', 'DW1.24')}".encode('utf-8')
+    exif_dict["0th"][piexif.ImageIFD.Software] = f"Dragon Wings AI - {metadata.get('model_key', 'SD')}".encode('utf-8')
+    exif_dict["0th"][piexif.ImageIFD.Artist] = "Dragon Wings Solar AI".encode('utf-8')
+    exif_dict["0th"][piexif.ImageIFD.Copyright] = f"Generated {datetime.now().year}".encode('utf-8')
+    exif_dict["0th"][piexif.ImageIFD.ImageDescription] = metadata.get('prompt', '')[:200].encode('utf-8')
+
+    # Convert to bytes
+    exif_bytes = piexif.dump(exif_dict)
+    return exif_bytes
+
+
+def set_finder_comment(filepath: str, metadata: dict):
+    """
+    Set macOS Finder comment with energy metadata.
+
+    Args:
+        filepath: Path to the image file
+        metadata: Dict containing energy and generation info
+    """
+    try:
+        # Format comment with energy data
+        comment = f"""🌞 Dragon Wings {metadata.get('unit', 'DW1.24')}
+⚡ Energy: {metadata.get('energy_wh', 0)} Wh from {metadata.get('energy_source', 'Solar')}
+⏱️ Generation: {metadata.get('generation_time', 0)}s
+🤖 Model: {metadata.get('model_key', 'unknown')}
+📐 Size: {metadata.get('width', 512)}×{metadata.get('height', 512)}
+🎨 {metadata.get('prompt', '')[:100]}"""
+
+        # Use osascript to set Finder comment (more reliable than xattr)
+        escaped_comment = comment.replace('"', '\\"').replace("'", "\\'")
+        escaped_path = filepath.replace('"', '\\"')
+
+        script = f'''tell application "Finder" to set comment of (POSIX file "{escaped_path}" as alias) to "{escaped_comment}"'''
+
+        subprocess.run(['osascript', '-e', script], check=False, capture_output=True)
+
+    except Exception as e:
+        # Don't fail the whole generation if comment setting fails
+        logger.warning(f"Failed to set Finder comment: {e}")
+        pass
+
+
 def generate_image_task(
     job_id: str,
     prompt: str,
@@ -140,14 +252,65 @@ def generate_image_task(
 
         generation_time = time.time() - start_time
 
-        # Save image to file
+        # Calculate energy consumption (65W base, adjust for concurrent jobs)
+        energy_wh = round((65.0 * (generation_time / 3600.0)), 2)
+
+        # Determine energy source based on time of day
+        # TODO: Replace with dragon_minds_os API call
+        hour = datetime.now().hour
+        energy_source = "Solar" if 6 <= hour < 18 else "Stored Solar"
+
+        # Prepare metadata
+        metadata = {
+            "unit": "DW1.24",
+            "generation_time": round(generation_time, 2),
+            "energy_wh": energy_wh,
+            "energy_source": energy_source,
+            "timestamp": datetime.utcnow().isoformat(),
+            "model_key": model_key,
+            "prompt": prompt,
+            "negative_prompt": negative_prompt,
+            "num_inference_steps": num_inference_steps,
+            "guidance_scale": guidance_scale,
+            "seed": seed if seed else "random",
+            "width": width,
+            "height": height,
+        }
+
+        # Add energy metadata to PNG
+        pnginfo = add_energy_metadata(image, metadata)
+
+        # Save PNG for UI/preview
         filename = f"{job_id}.png"
         filepath = os.path.join(settings.output_dir, filename)
-        image.save(filepath)
+        image.save(filepath, pnginfo=pnginfo)
 
-        # Convert to base64
+        # Also save JPEG with EXIF for downloads
+        jpeg_filename = f"{job_id}.jpg"
+        jpeg_filepath = os.path.join(settings.output_dir, jpeg_filename)
+
+        # Convert to RGB if needed (JPEG doesn't support RGBA)
+        jpeg_image = image
+        if image.mode in ('RGBA', 'LA', 'P'):
+            rgb_image = Image.new('RGB', image.size, (255, 255, 255))
+            if image.mode == 'P':
+                image_temp = image.convert('RGBA')
+            else:
+                image_temp = image
+            rgb_image.paste(image_temp, mask=image_temp.split()[-1] if image_temp.mode in ('RGBA', 'LA') else None)
+            jpeg_image = rgb_image
+
+        # Add EXIF metadata to JPEG
+        exif_bytes = add_energy_metadata_jpeg(metadata)
+        jpeg_image.save(jpeg_filepath, format="JPEG", quality=95, exif=exif_bytes)
+
+        # Set macOS Finder comment on both files
+        set_finder_comment(filepath, metadata)
+        set_finder_comment(jpeg_filepath, metadata)
+
+        # Convert to base64 (PNG for preview)
         buffered = BytesIO()
-        image.save(buffered, format="PNG")
+        image.save(buffered, format="PNG", pnginfo=pnginfo)
         image_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
 
         # Update job status
@@ -212,14 +375,65 @@ def generate_img2img_task(
 
         generation_time = time.time() - start_time
 
-        # Save image to file
+        # Calculate energy consumption (65W base, adjust for concurrent jobs)
+        energy_wh = round((65.0 * (generation_time / 3600.0)), 2)
+
+        # Determine energy source based on time of day
+        # TODO: Replace with dragon_minds_os API call
+        hour = datetime.now().hour
+        energy_source = "Solar" if 6 <= hour < 18 else "Stored Solar"
+
+        # Prepare metadata
+        metadata = {
+            "unit": "DW1.24",
+            "generation_time": round(generation_time, 2),
+            "energy_wh": energy_wh,
+            "energy_source": energy_source,
+            "timestamp": datetime.utcnow().isoformat(),
+            "model_key": model_key,
+            "prompt": prompt,
+            "negative_prompt": negative_prompt,
+            "num_inference_steps": num_inference_steps,
+            "guidance_scale": guidance_scale,
+            "seed": seed if seed else "random",
+            "width": width,
+            "height": height,
+        }
+
+        # Add energy metadata to PNG
+        pnginfo = add_energy_metadata(image, metadata)
+
+        # Save PNG for UI/preview
         filename = f"{job_id}.png"
         filepath = os.path.join(settings.output_dir, filename)
-        image.save(filepath)
+        image.save(filepath, pnginfo=pnginfo)
 
-        # Convert to base64
+        # Also save JPEG with EXIF for downloads
+        jpeg_filename = f"{job_id}.jpg"
+        jpeg_filepath = os.path.join(settings.output_dir, jpeg_filename)
+
+        # Convert to RGB if needed (JPEG doesn't support RGBA)
+        jpeg_image = image
+        if image.mode in ('RGBA', 'LA', 'P'):
+            rgb_image = Image.new('RGB', image.size, (255, 255, 255))
+            if image.mode == 'P':
+                image_temp = image.convert('RGBA')
+            else:
+                image_temp = image
+            rgb_image.paste(image_temp, mask=image_temp.split()[-1] if image_temp.mode in ('RGBA', 'LA') else None)
+            jpeg_image = rgb_image
+
+        # Add EXIF metadata to JPEG
+        exif_bytes = add_energy_metadata_jpeg(metadata)
+        jpeg_image.save(jpeg_filepath, format="JPEG", quality=95, exif=exif_bytes)
+
+        # Set macOS Finder comment on both files
+        set_finder_comment(filepath, metadata)
+        set_finder_comment(jpeg_filepath, metadata)
+
+        # Convert to base64 (PNG for preview)
         buffered = BytesIO()
-        image.save(buffered, format="PNG")
+        image.save(buffered, format="PNG", pnginfo=pnginfo)
         image_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
 
         # Update job status
@@ -294,14 +508,65 @@ def generate_inpaint_task(
 
         generation_time = time.time() - start_time
 
-        # Save image to file
+        # Calculate energy consumption (65W base, adjust for concurrent jobs)
+        energy_wh = round((65.0 * (generation_time / 3600.0)), 2)
+
+        # Determine energy source based on time of day
+        # TODO: Replace with dragon_minds_os API call
+        hour = datetime.now().hour
+        energy_source = "Solar" if 6 <= hour < 18 else "Stored Solar"
+
+        # Prepare metadata
+        metadata = {
+            "unit": "DW1.24",
+            "generation_time": round(generation_time, 2),
+            "energy_wh": energy_wh,
+            "energy_source": energy_source,
+            "timestamp": datetime.utcnow().isoformat(),
+            "model_key": model_key,
+            "prompt": prompt,
+            "negative_prompt": negative_prompt,
+            "num_inference_steps": num_inference_steps,
+            "guidance_scale": guidance_scale,
+            "seed": seed if seed else "random",
+            "width": width,
+            "height": height,
+        }
+
+        # Add energy metadata to PNG
+        pnginfo = add_energy_metadata(image, metadata)
+
+        # Save PNG for UI/preview
         filename = f"{job_id}.png"
         filepath = os.path.join(settings.output_dir, filename)
-        image.save(filepath)
+        image.save(filepath, pnginfo=pnginfo)
 
-        # Convert to base64
+        # Also save JPEG with EXIF for downloads
+        jpeg_filename = f"{job_id}.jpg"
+        jpeg_filepath = os.path.join(settings.output_dir, jpeg_filename)
+
+        # Convert to RGB if needed (JPEG doesn't support RGBA)
+        jpeg_image = image
+        if image.mode in ('RGBA', 'LA', 'P'):
+            rgb_image = Image.new('RGB', image.size, (255, 255, 255))
+            if image.mode == 'P':
+                image_temp = image.convert('RGBA')
+            else:
+                image_temp = image
+            rgb_image.paste(image_temp, mask=image_temp.split()[-1] if image_temp.mode in ('RGBA', 'LA') else None)
+            jpeg_image = rgb_image
+
+        # Add EXIF metadata to JPEG
+        exif_bytes = add_energy_metadata_jpeg(metadata)
+        jpeg_image.save(jpeg_filepath, format="JPEG", quality=95, exif=exif_bytes)
+
+        # Set macOS Finder comment on both files
+        set_finder_comment(filepath, metadata)
+        set_finder_comment(jpeg_filepath, metadata)
+
+        # Convert to base64 (PNG for preview)
         buffered = BytesIO()
-        image.save(buffered, format="PNG")
+        image.save(buffered, format="PNG", pnginfo=pnginfo)
         image_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
 
         # Update job status
