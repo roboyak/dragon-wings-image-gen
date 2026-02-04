@@ -250,9 +250,6 @@ def add_watermark(image, metadata: dict):
 
 
 def set_finder_comment(filepath: str, metadata: dict):
-
-
-def set_finder_comment(filepath: str, metadata: dict):
     """
     Set macOS Finder comment with energy metadata.
 
