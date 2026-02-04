@@ -4,7 +4,7 @@
 <div class="image-card card-stagger rounded-lg overflow-hidden cursor-pointer group relative"
      data-image-id="<%= image.id %>"
      data-status="<%= image.status %>"
-     onclick="<%= image.completed? ? "window.open('#{image_path(image)}', '_blank')" : '' %>"
+     onclick="<%= image.completed? ? "window.location.href='#{image_path(image)}'" : '' %>"
      style="background-color: hsl(var(--card)); border-radius: 8px;">
 
   <%# Completed Image %>
@@ -16,12 +16,20 @@
           loading: "lazy",
           onload: "this.classList.add('loaded')" %>
 
-      <%# Favorite Heart Indicator (always visible when favorited) %>
+      <%# Favorite Heart Indicator (top-left when favorited) %>
       <% if image.favorite? %>
         <div class="favorite-indicator absolute top-2 left-2 p-1.5 rounded-full" style="background-color: hsl(var(--destructive) / 0.9);">
           <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24" style="color: white;">
             <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
           </svg>
+        </div>
+      <% end %>
+
+      <%# Energy Usage Indicator (bottom-right) %>
+      <% if image.energy_consumption_wh %>
+        <div class="absolute bottom-2 right-2 px-2 py-1 rounded-full text-xs font-medium backdrop-blur-sm"
+             style="background-color: hsl(var(--primary) / 0.9); color: white;">
+          ⚡ <%= image.energy_consumption_wh %> Wh
         </div>
       <% end %>
 
