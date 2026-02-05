@@ -285,6 +285,13 @@ class ImagesController < ApplicationController
         follow_redirects: true
       )
 
+      # If watermarked version not found (old images), fall back to clean version
+      if response.code == 404 && current_user.free?
+        Rails.logger.info "=== Watermarked version not found, falling back to clean JPEG ==="
+        jpeg_url = @image.image_url.sub('.png', '.jpg')
+        response = HTTParty.get(jpeg_url, timeout: 30, follow_redirects: true)
+      end
+
       # Check if request was successful
       unless response.success?
         Rails.logger.error "=== DOWNLOAD ERROR: HTTP #{response.code} from #{jpeg_url} ==="
