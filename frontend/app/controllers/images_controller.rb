@@ -1,6 +1,6 @@
 class ImagesController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_image, only: [:show, :status, :toggle_favorite, :edit_mask, :generate_inpaint, :download, :serve]
+  before_action :set_image, only: [:show, :status, :toggle_favorite, :edit_mask, :generate_inpaint, :download, :serve, :destroy]
   before_action :check_quota, only: [:create]
 
   # GET /images
@@ -314,6 +314,12 @@ class ImagesController < ApplicationController
       Rails.logger.error e.backtrace.join("\n")
       redirect_to @image, alert: "Failed to download image: #{e.message}"
     end
+  end
+
+  # DELETE /images/:id
+  def destroy
+    @image.destroy
+    redirect_to images_path, notice: "Image deleted successfully"
   end
 
   # Serve image inline through Rails (for ngrok/external access)
