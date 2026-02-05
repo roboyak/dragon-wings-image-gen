@@ -217,9 +217,9 @@ def add_watermark(image, metadata: dict):
     pill_x = image.width - pill_width - 12
     pill_y = image.height - pill_height - 12
 
-    # Draw pill background (cyan with transparency, matching gallery)
-    # hsl(var(--primary) / 0.9) = cyan at 90% opacity ≈ rgba(0, 188, 212, 230)
-    pill_color = (0, 188, 212, 230)  # Cyan with 90% opacity
+    # Draw pill background (light transparent green)
+    # Light lime green with 70% opacity for subtle branding
+    pill_color = (100, 255, 150, 180)  # Light green with transparency
     draw.rounded_rectangle(
         [(pill_x, pill_y), (pill_x + pill_width, pill_y + pill_height)],
         radius=pill_height // 2,  # Fully rounded ends
