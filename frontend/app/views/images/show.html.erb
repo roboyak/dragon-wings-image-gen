@@ -32,7 +32,7 @@
     <div class="flex-1 flex items-center justify-center p-6 overflow-hidden">
       <% if @image.completed? && @image.image_url.present? %>
         <div class="relative max-w-full max-h-full">
-          <%= image_tag @image.image_url,
+          <%= image_tag @image.display_url,
               alt: @image.prompt,
               class: "max-w-full max-h-[calc(100vh-120px)] w-auto h-auto rounded-lg shadow-2xl object-contain",
               id: "main-image" %>
@@ -206,6 +206,9 @@
           <% if @image.generation_time && @image.generation_time > 0 %>
             <p class="text-xs mt-1" style="color: hsl(var(--muted-foreground));">
               Took <%= @image.generation_time.round(1) %>s
+              <% if @image.energy_consumption_wh %>
+                & <%= @image.energy_consumption_wh %> Wh from Dragon Wings 1.24 <%= @image.energy_source %>
+              <% end %>
             </p>
           <% end %>
         </div>

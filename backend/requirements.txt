@@ -16,6 +16,7 @@ torchvision>=0.15.0
 
 # Image processing (latest version compatible with Python 3.13)
 Pillow>=10.0.0
+piexif>=1.1.3  # EXIF metadata for JPEG images
 
 # Environment variables
 python-dotenv>=1.0.0
@@ -30,3 +31,4 @@ httpx>=0.25.0
 # FLUX model support
 protobuf>=4.0.0
 sentencepiece>=0.1.99
+pillow-heif

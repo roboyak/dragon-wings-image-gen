@@ -4,24 +4,33 @@
 <div class="image-card card-stagger rounded-lg overflow-hidden cursor-pointer group relative"
      data-image-id="<%= image.id %>"
      data-status="<%= image.status %>"
-     onclick="<%= image.completed? ? "window.open('#{image_path(image)}', '_blank')" : '' %>"
+     onclick="<%= image.completed? ? "window.location.href='#{image_path(image)}'" : '' %>"
      style="background-color: hsl(var(--card)); border-radius: 8px;">
 
   <%# Completed Image %>
   <% if image.completed? && image.image_url.present? %>
     <div class="relative overflow-hidden" style="aspect-ratio: 1 / 1;">
-      <%= image_tag image.image_url,
+      <%= image_tag image.display_url,
           alt: image.prompt.truncate(50),
           class: "w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 image-fade-in",
           loading: "lazy",
           onload: "this.classList.add('loaded')" %>
 
-      <%# Favorite Heart Indicator (always visible when favorited) %>
+      <%# Favorite Heart Indicator (top-left when favorited) %>
       <% if image.favorite? %>
         <div class="favorite-indicator absolute top-2 left-2 p-1.5 rounded-full" style="background-color: hsl(var(--destructive) / 0.9);">
           <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24" style="color: white;">
             <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
           </svg>
+        </div>
+      <% end %>
+
+      <%# Energy Usage Indicator (bottom-right) %>
+      <% if image.energy_consumption_wh %>
+        <div class="absolute bottom-3 right-3 px-2.5 py-1 rounded-full text-xs font-medium backdrop-blur-sm flex items-center gap-1"
+             style="background-color: hsl(var(--primary) / 0.9); color: white;">
+          <span>⚡</span>
+          <span><%= image.energy_consumption_wh %> Wh</span>
         </div>
       <% end %>
 
@@ -32,7 +41,7 @@
 
         <%# Action Buttons %>
         <div class="flex items-center gap-2">
-          <button onclick="event.stopPropagation(); window.open('<%= image_path(image) %>', '_blank')"
+          <button onclick="event.stopPropagation(); window.location.href='<%= image_path(image) %>'"
                   class="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors"
                   style="background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));"
                   title="View Details"

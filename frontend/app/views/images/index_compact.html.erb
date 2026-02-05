@@ -144,7 +144,7 @@
 
             <% if image.completed? && image.image_url.present? %>
               <%= link_to image_path(image), target: "_blank", class: "block h-full" do %>
-                <%= image_tag image.image_url, alt: image.prompt.truncate(30), class: "w-full h-full object-cover" %>
+                <%= image_tag image.display_url, alt: image.prompt.truncate(30), class: "w-full h-full object-cover" %>
               <% end %>
 
               <!-- Hover Overlay -->

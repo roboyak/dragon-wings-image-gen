@@ -9,12 +9,6 @@ from pathlib import Path
 from datetime import datetime
 from PIL import Image, PngImagePlugin
 import piexif
-# Register HEIF/HEIC support for iPhone photos
-try:
-    from pillow_heif import register_heif_opener
-    register_heif_opener()
-except ImportError:
-    pass  # HEIC support not available
 from fastapi import FastAPI, HTTPException, BackgroundTasks, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -203,7 +197,7 @@ def add_watermark(image, metadata: dict):
     logo_path = os.path.join(os.path.dirname(__file__), 'assets', 'watermark_logo.png')
     try:
         logo = PILImage.open(logo_path).convert('RGBA')
-        logo_height = 37  # Target logo height (32px + 15% = 37px)
+        logo_height = 24  # Target logo height
         aspect_ratio = logo.width / logo.height
         logo_width = int(logo_height * aspect_ratio)
         logo = logo.resize((logo_width, logo_height), PILImage.Resampling.LANCZOS)
@@ -633,7 +627,7 @@ def generate_inpaint_task(
             "guidance_scale": guidance_scale,
             "seed": seed if seed else "random",
             "width": init_image.width,
-            "height": init_image.height,
+            "height": height,
         }
 
         # Add energy metadata to PNG
@@ -794,7 +788,7 @@ async def generate_img2img(
     prompt: str = Form(...),
     model_key: str = Form("sd-v1-5"),
     negative_prompt: str = Form(""),
-    strength: float = Form(0.7),
+    strength: float = Form(0.75),
     num_inference_steps: int = Form(50),
     guidance_scale: float = Form(7.5),
     seed: int | None = Form(None),
@@ -815,8 +809,8 @@ async def generate_img2img(
         guidance_scale: How closely to follow prompt (1.0-20.0)
         seed: Random seed for reproducibility
     """
-    # Validate file type (including iPhone HEIC)
-    allowed_types = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/heic", "image/heif"]
+    # Validate file type
+    allowed_types = ["image/png", "image/jpeg", "image/jpg", "image/webp"]
     if init_image.content_type not in allowed_types:
         raise HTTPException(
             status_code=400,
@@ -927,8 +921,8 @@ async def generate_inpaint(
             detail=f"Model '{model_key}' does not support inpainting. Use sd-v1-5, openjourney, sdxl, or other SD-based models.",
         )
 
-    # Validate file types (including iPhone HEIC)
-    allowed_types = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/heic", "image/heif"]
+    # Validate file types
+    allowed_types = ["image/png", "image/jpeg", "image/jpg", "image/webp"]
     if init_image.content_type not in allowed_types:
         raise HTTPException(
             status_code=400,

@@ -1,6 +1,6 @@
 class ImagesController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_image, only: [:show, :status, :toggle_favorite, :edit_mask, :generate_inpaint, :download]
+  before_action :set_image, only: [:show, :status, :toggle_favorite, :edit_mask, :generate_inpaint, :download, :serve, :destroy]
   before_action :check_quota, only: [:create]
 
   # GET /images
@@ -13,6 +13,35 @@ class ImagesController < ApplicationController
       # Gallery: Show only successful/completed images
       @images = base_query.where(status: 'completed').recent
       @view_mode = 'gallery'
+    when 'energy'
+      # Energy: Show completed images with energy tracking, sortable
+      @images = base_query.where(status: 'completed')
+
+      # Apply sorting
+      sort_column = params[:sort] || 'created_at'
+      sort_direction = params[:direction] || 'desc'
+
+      # Map sort columns to valid SQL (including calculated fields)
+      case sort_column
+      when 'created_at'
+        @images = @images.order("created_at #{sort_direction}")
+      when 'model_key'
+        @images = @images.order("model_key #{sort_direction}")
+      when 'prompt'
+        @images = @images.order("prompt #{sort_direction}")
+      when 'energy'
+        # Sort by calculated energy: (updated_at - created_at) * 65W / 3600
+        @images = @images.order(Arel.sql("(EXTRACT(EPOCH FROM (updated_at - created_at)) * 65.0 / 3600.0) #{sort_direction}"))
+      when 'time_taken'
+        # Sort by generation time: (updated_at - created_at)
+        @images = @images.order(Arel.sql("EXTRACT(EPOCH FROM (updated_at - created_at)) #{sort_direction}"))
+      else
+        @images = @images.recent
+      end
+
+      @view_mode = 'energy'
+      @sort_column = sort_column
+      @sort_direction = sort_direction
     when 'history'
       # History: Show ALL images (including failed/generating)
       @images = base_query.recent
@@ -271,25 +300,39 @@ class ImagesController < ApplicationController
     end
 
     begin
-      # Fetch image from backend with timeout
+      # Fetch JPEG version (with EXIF metadata) instead of PNG
+      # Free tier gets watermarked version, paid tiers get clean version
+      if current_user.free?
+        jpeg_url = @image.image_url.sub('.png', '_watermark.jpg')
+      else
+        jpeg_url = @image.image_url.sub('.png', '.jpg')
+      end
+
       response = HTTParty.get(
-        @image.image_url,
+        jpeg_url,
         timeout: 30,
         follow_redirects: true
       )
 
+      # If watermarked version not found (old images), fall back to clean version
+      if response.code == 404 && current_user.free?
+        Rails.logger.info "=== Watermarked version not found, falling back to clean JPEG ==="
+        jpeg_url = @image.image_url.sub('.png', '.jpg')
+        response = HTTParty.get(jpeg_url, timeout: 30, follow_redirects: true)
+      end
+
       # Check if request was successful
       unless response.success?
-        Rails.logger.error "=== DOWNLOAD ERROR: HTTP #{response.code} from #{@image.image_url} ==="
+        Rails.logger.error "=== DOWNLOAD ERROR: HTTP #{response.code} from #{jpeg_url} ==="
         redirect_to @image, alert: "Failed to download image (HTTP #{response.code})"
         return
       end
 
-      # Send the image data to the browser with attachment headers
+      # Send the JPEG image data with EXIF metadata
       send_data response.body,
-                type: 'image/png',
+                type: 'image/jpeg',
                 disposition: 'attachment',
-                filename: "dragon-wings-#{@image.id}.png"
+                filename: "dragon-wings-#{@image.id}.jpg"
 
     rescue HTTParty::Error, Net::OpenTimeout, Net::ReadTimeout => e
       Rails.logger.error "=== DOWNLOAD ERROR: #{e.class} - #{e.message} ==="
@@ -299,6 +342,49 @@ class ImagesController < ApplicationController
       Rails.logger.error "=== UNEXPECTED DOWNLOAD ERROR: #{e.class} - #{e.message} ==="
       Rails.logger.error e.backtrace.join("\n")
       redirect_to @image, alert: "Failed to download image: #{e.message}"
+    end
+  end
+
+  # DELETE /images/:id
+  def destroy
+    @image.destroy
+    redirect_to images_path, notice: "Image deleted successfully"
+  end
+
+  # Serve image inline through Rails (for ngrok/external access)
+  def serve
+    unless @image.completed?
+      head :not_found
+      return
+    end
+
+    unless @image.image_url.present?
+      head :not_found
+      return
+    end
+
+    begin
+      # Fetch image from backend
+      response = HTTParty.get(
+        @image.image_url,
+        timeout: 30,
+        follow_redirects: true
+      )
+
+      unless response.success?
+        Rails.logger.error "=== SERVE ERROR: HTTP #{response.code} from #{@image.image_url} ==="
+        head :not_found
+        return
+      end
+
+      # Send the image data inline for display
+      send_data response.body,
+                type: 'image/png',
+                disposition: 'inline'
+
+    rescue StandardError => e
+      Rails.logger.error "=== SERVE ERROR: #{e.class} - #{e.message} ==="
+      head :not_found
     end
   end
 
