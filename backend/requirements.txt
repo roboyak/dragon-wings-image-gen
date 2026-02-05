@@ -31,3 +31,4 @@ httpx>=0.25.0
 # FLUX model support
 protobuf>=4.0.0
 sentencepiece>=0.1.99
+pillow-heif

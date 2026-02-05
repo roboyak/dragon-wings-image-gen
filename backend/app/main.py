@@ -9,6 +9,12 @@ from pathlib import Path
 from datetime import datetime
 from PIL import Image, PngImagePlugin
 import piexif
+# Register HEIF/HEIC support for iPhone photos
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+except ImportError:
+    pass  # HEIC support not available
 from fastapi import FastAPI, HTTPException, BackgroundTasks, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -809,8 +815,8 @@ async def generate_img2img(
         guidance_scale: How closely to follow prompt (1.0-20.0)
         seed: Random seed for reproducibility
     """
-    # Validate file type
-    allowed_types = ["image/png", "image/jpeg", "image/jpg", "image/webp"]
+    # Validate file type (including iPhone HEIC)
+    allowed_types = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/heic", "image/heif"]
     if init_image.content_type not in allowed_types:
         raise HTTPException(
             status_code=400,
@@ -921,8 +927,8 @@ async def generate_inpaint(
             detail=f"Model '{model_key}' does not support inpainting. Use sd-v1-5, openjourney, sdxl, or other SD-based models.",
         )
 
-    # Validate file types
-    allowed_types = ["image/png", "image/jpeg", "image/jpg", "image/webp"]
+    # Validate file types (including iPhone HEIC)
+    allowed_types = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/heic", "image/heif"]
     if init_image.content_type not in allowed_types:
         raise HTTPException(
             status_code=400,

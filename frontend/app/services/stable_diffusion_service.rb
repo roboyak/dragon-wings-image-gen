@@ -52,9 +52,10 @@ class StableDiffusionService
     boundary = "----WebKitFormBoundary#{SecureRandom.hex(16)}"
     post_body = []
 
-    # Add file
+    # Add file (sanitize filename - replace spaces and special chars)
+    safe_filename = init_image_file.original_filename.gsub(/[^a-zA-Z0-9._-]/, '_')
     post_body << "--#{boundary}\r\n"
-    post_body << "Content-Disposition: form-data; name=\"init_image\"; filename=\"#{init_image_file.original_filename}\"\r\n"
+    post_body << "Content-Disposition: form-data; name=\"init_image\"; filename=\"#{safe_filename}\"\r\n"
     post_body << "Content-Type: #{init_image_file.content_type}\r\n\r\n"
     post_body << init_image_file.read
     post_body << "\r\n"
@@ -121,16 +122,16 @@ class StableDiffusionService
     boundary = "----WebKitFormBoundary#{SecureRandom.hex(16)}"
     post_body = []
 
-    # Add init_image file
+    # Add init_image file (sanitized filename)
     post_body << "--#{boundary}\r\n"
-    post_body << "Content-Disposition: form-data; name=\"init_image\"; filename=\"init.png\"\r\n"
+    post_body << "Content-Disposition: form-data; name=\"init_image\"; filename=\"init_image.png\"\r\n"
     post_body << "Content-Type: image/png\r\n\r\n"
     post_body << init_image_data
     post_body << "\r\n"
 
-    # Add mask_image file
+    # Add mask_image file (sanitized filename)
     post_body << "--#{boundary}\r\n"
-    post_body << "Content-Disposition: form-data; name=\"mask_image\"; filename=\"mask.png\"\r\n"
+    post_body << "Content-Disposition: form-data; name=\"mask_image\"; filename=\"mask_image.png\"\r\n"
     post_body << "Content-Type: image/png\r\n\r\n"
     post_body << mask_image_data
     post_body << "\r\n"
