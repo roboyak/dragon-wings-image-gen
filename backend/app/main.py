@@ -491,8 +491,8 @@ def generate_img2img_task(
             "num_inference_steps": num_inference_steps,
             "guidance_scale": guidance_scale,
             "seed": seed if seed else "random",
-            "width": width,
-            "height": height,
+            "width": init_image.width,
+            "height": init_image.height,
         }
 
         # Add energy metadata to PNG
@@ -626,8 +626,8 @@ def generate_inpaint_task(
             "num_inference_steps": num_inference_steps,
             "guidance_scale": guidance_scale,
             "seed": seed if seed else "random",
-            "width": width,
-            "height": height,
+            "width": init_image.width,
+            "height": init_image.height,
         }
 
         # Add energy metadata to PNG
