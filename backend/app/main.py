@@ -208,12 +208,17 @@ def add_watermark(image, metadata: dict):
     if logo.mode != 'RGBA':
         logo = logo.convert('RGBA')
 
-    # Make logo semi-transparent (70% opacity)
-    logo_with_alpha = Image.new('RGBA', logo.size)
-    for x in range(logo.width):
-        for y in range(logo.height):
-            r, g, b, a = logo.getpixel((x, y))
-            logo_with_alpha.putpixel((x, y), (r, g, b, int(a * 0.7)))
+    # Make logo semi-transparent (50% opacity for better transparency)
+    logo_with_alpha = Image.new('RGBA', logo.size, (0, 0, 0, 0))
+    logo_data = logo.getdata()
+    new_data = []
+    for item in logo_data:
+        # Apply 50% transparency to all pixels
+        if len(item) == 4:
+            new_data.append((item[0], item[1], item[2], int(item[3] * 0.5)))
+        else:
+            new_data.append(item)
+    logo_with_alpha.putdata(new_data)
 
     # Position logo in bottom-right corner
     logo_x = image.width - logo_size - 15
