@@ -214,16 +214,14 @@
                 <optgroup label="Base Models">
                   <option value="sd-v1-5">Stable Diffusion v1.5</option>
                   <option value="openjourney">OpenJourney (Midjourney-style)</option>
-                  <option value="sdxl">SDXL 1.0</option>
+                  <%# Hidden: SDXL requires too much memory for current hardware %>
                 </optgroup>
                 <optgroup label="Specialized Styles">
                   <option value="realistic-vision">Realistic Vision v5.1</option>
                   <option value="dreamshaper">DreamShaper 8</option>
                   <option value="analog-diffusion">Analog Diffusion</option>
                 </optgroup>
-                <optgroup label="Next-Gen Models">
-                  <option value="flux-schnell">FLUX.1 Schnell</option>
-                </optgroup>
+                <%# Hidden: FLUX.1 requires 12GB+ RAM, not suitable for current hardware %>
               </select>
               <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--muted-foreground));">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
@@ -1246,11 +1244,9 @@
   const modelDescriptions = {
     'sd-v1-5': 'Fast generation, good for quick iterations',
     'openjourney': 'Midjourney-style artistic renders, beautiful aesthetic',
-    'sdxl': 'Highest quality, best for final outputs (slower)',
     'realistic-vision': 'Photorealistic portraits and natural scenes',
     'dreamshaper': 'Fantasy art and stylized illustrations',
-    'analog-diffusion': 'Vintage film photography look (add "analog style" to prompt)',
-    'flux-schnell': 'State-of-art quality, excellent text rendering (requires 12GB+ RAM)'
+    'analog-diffusion': 'Vintage film photography look (add "analog style" to prompt)'
   };
 
   function updateModel(value) {
