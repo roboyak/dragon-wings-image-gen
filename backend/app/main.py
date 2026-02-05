@@ -788,7 +788,7 @@ async def generate_img2img(
     prompt: str = Form(...),
     model_key: str = Form("sd-v1-5"),
     negative_prompt: str = Form(""),
-    strength: float = Form(0.9),
+    strength: float = Form(0.7),
     num_inference_steps: int = Form(50),
     guidance_scale: float = Form(7.5),
     seed: int | None = Form(None),
