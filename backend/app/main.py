@@ -178,7 +178,7 @@ def add_energy_metadata_jpeg(metadata: dict):
 def add_watermark(image, metadata: dict):
     """
     Add Dragon Wings watermark to image (for free tier downloads).
-    Matches mockup: logo in bottom-right, energy text to left of logo.
+    Style: Green pill badge matching gallery thumbnails.
 
     Args:
         image: PIL Image object (RGB)
@@ -191,65 +191,46 @@ def add_watermark(image, metadata: dict):
 
     # Create a copy to avoid modifying original
     watermarked = image.copy()
+    draw = ImageDraw.Draw(watermarked, 'RGBA')
 
-    # Load and resize logo
-    logo_path = Path(__file__).parent / "assets" / "watermark_logo.png"
-    if not logo_path.exists():
-        logger.warning(f"Watermark logo not found at {logo_path}")
-        return watermarked
+    # Energy text
+    energy_text = f"⚡ {metadata.get('energy_wh', 0)} Wh"
 
-    logo = Image.open(logo_path)
-
-    # Resize logo to 70px diameter (matching mockup)
-    logo_size = 70
-    logo = logo.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
-
-    # Ensure logo has alpha channel
-    if logo.mode != 'RGBA':
-        logo = logo.convert('RGBA')
-
-    # Make logo semi-transparent (50% opacity for better transparency)
-    logo_with_alpha = Image.new('RGBA', logo.size, (0, 0, 0, 0))
-    logo_data = logo.getdata()
-    new_data = []
-    for item in logo_data:
-        # Apply 50% transparency to all pixels
-        if len(item) == 4:
-            new_data.append((item[0], item[1], item[2], int(item[3] * 0.5)))
-        else:
-            new_data.append(item)
-    logo_with_alpha.putdata(new_data)
-
-    # Position logo in bottom-right corner
-    logo_x = image.width - logo_size - 15
-    logo_y = image.height - logo_size - 15
-
-    # Paste logo
-    watermarked.paste(logo_with_alpha, (logo_x, logo_y), logo_with_alpha)
-
-    # Add energy text to the left of logo
-    draw = ImageDraw.Draw(watermarked)
-    energy_text = f"{metadata.get('energy_wh', 0)}Wh"
-
-    # Use default font, size 28
+    # Font
     try:
-        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 28)
+        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 20)
     except:
         font = ImageFont.load_default()
 
-    # Position text to left of logo
+    # Calculate text size
     text_bbox = draw.textbbox((0, 0), energy_text, font=font)
     text_width = text_bbox[2] - text_bbox[0]
     text_height = text_bbox[3] - text_bbox[1]
 
-    text_x = logo_x - text_width - 15
-    text_y = logo_y + (logo_size - text_height) // 2
+    # Pill dimensions (matching gallery badge)
+    padding_x = 12
+    padding_y = 6
+    pill_width = text_width + (padding_x * 2)
+    pill_height = text_height + (padding_y * 2)
 
-    # Draw text with semi-transparent shadow for readability
-    shadow_offset = 2
-    draw.text((text_x + shadow_offset, text_y + shadow_offset), energy_text,
-              fill=(0, 0, 0, 180), font=font)
-    draw.text((text_x, text_y), energy_text, fill=(255, 255, 255, 230), font=font)
+    # Position in bottom-right corner
+    pill_x = image.width - pill_width - 12
+    pill_y = image.height - pill_height - 12
+
+    # Draw pill background (cyan with transparency, matching gallery)
+    # hsl(var(--primary) / 0.9) = cyan at 90% opacity ≈ rgba(0, 188, 212, 230)
+    pill_color = (0, 188, 212, 230)  # Cyan with 90% opacity
+    draw.rounded_rectangle(
+        [(pill_x, pill_y), (pill_x + pill_width, pill_y + pill_height)],
+        radius=pill_height // 2,  # Fully rounded ends
+        fill=pill_color
+    )
+
+    # Draw text (white, no shadow for clean look)
+    text_x = pill_x + padding_x
+    text_y = pill_y + padding_y - 2  # Slight adjustment for vertical centering
+
+    draw.text((text_x, text_y), energy_text, fill=(255, 255, 255, 255), font=font)
 
     return watermarked
 
