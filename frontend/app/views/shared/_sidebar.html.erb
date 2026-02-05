@@ -99,11 +99,11 @@
         <span>Gallery</span>
       <% end %>
 
-      <%= link_to images_path(view: 'history'), class: "dw-sidebar-item #{params[:view] == 'history' ? 'dw-sidebar-item-active' : ''}" do %>
+      <%= link_to images_path(view: 'energy'), class: "dw-sidebar-item #{params[:view] == 'energy' ? 'dw-sidebar-item-active' : ''}" do %>
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
         </svg>
-        <span>History</span>
+        <span>Energy</span>
       <% end %>
 
       <%= link_to images_path(view: 'favorites'), class: "dw-sidebar-item #{params[:view] == 'favorites' ? 'dw-sidebar-item-active' : ''}" do %>

@@ -23,6 +23,142 @@
             </div>
           </div>
         </div>
+      <% elsif @view_mode == 'energy' %>
+        <%# Energy Tracking Table %>
+        <div class="p-4">
+          <div class="mb-4 flex items-center justify-between">
+            <h2 class="text-lg font-semibold flex items-center gap-2" style="color: hsl(var(--foreground));">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: hsl(var(--primary));">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+              </svg>
+              Energy Tracking
+            </h2>
+            <div class="text-sm" style="color: hsl(var(--muted-foreground));">
+              <% total_energy = @images.sum { |img| img.energy_consumption_wh || 0 } %>
+              Total: <span style="color: hsl(var(--primary));" class="font-semibold"><%= total_energy.round(2) %> Wh</span>
+            </div>
+          </div>
+
+          <div class="rounded-lg border overflow-hidden" style="border-color: hsl(var(--border)); background-color: hsl(var(--card));">
+            <table class="w-full text-sm">
+              <thead class="border-b" style="border-color: hsl(var(--border)); background-color: hsl(var(--muted) / 0.3);">
+                <tr>
+                  <th class="text-left p-3 font-semibold" style="color: hsl(var(--foreground));">Image</th>
+                  <th class="text-left p-3 font-semibold" style="color: hsl(var(--foreground));">
+                    <%= link_to images_path(view: 'energy', sort: 'model_key', direction: (@sort_column == 'model_key' && @sort_direction == 'asc' ? 'desc' : 'asc')), class: "flex items-center gap-1 hover:opacity-70" do %>
+                      Model
+                      <% if @sort_column == 'model_key' %>
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <% if @sort_direction == 'asc' %>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                          <% else %>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                          <% end %>
+                        </svg>
+                      <% end %>
+                    <% end %>
+                  </th>
+                  <th class="text-left p-3 font-semibold" style="color: hsl(var(--foreground));">
+                    <%= link_to images_path(view: 'energy', sort: 'energy', direction: (@sort_column == 'energy' && @sort_direction == 'asc' ? 'desc' : 'asc')), class: "flex items-center gap-1 hover:opacity-70" do %>
+                      Energy Used
+                      <% if @sort_column == 'energy' %>
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <% if @sort_direction == 'asc' %>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                          <% else %>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                          <% end %>
+                        </svg>
+                      <% end %>
+                    <% end %>
+                  </th>
+                  <th class="text-left p-3 font-semibold" style="color: hsl(var(--foreground));">
+                    <%= link_to images_path(view: 'energy', sort: 'prompt', direction: (@sort_column == 'prompt' && @sort_direction == 'asc' ? 'desc' : 'asc')), class: "flex items-center gap-1 hover:opacity-70" do %>
+                      Prompt
+                      <% if @sort_column == 'prompt' %>
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <% if @sort_direction == 'asc' %>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                          <% else %>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                          <% end %>
+                        </svg>
+                      <% end %>
+                    <% end %>
+                  </th>
+                  <th class="text-left p-3 font-semibold" style="color: hsl(var(--foreground));">
+                    <%= link_to images_path(view: 'energy', sort: 'time_taken', direction: (@sort_column == 'time_taken' && @sort_direction == 'asc' ? 'desc' : 'asc')), class: "flex items-center gap-1 hover:opacity-70" do %>
+                      Time Taken
+                      <% if @sort_column == 'time_taken' %>
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <% if @sort_direction == 'asc' %>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                          <% else %>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                          <% end %>
+                        </svg>
+                      <% end %>
+                    <% end %>
+                  </th>
+                  <th class="text-left p-3 font-semibold" style="color: hsl(var(--foreground));">
+                    <%= link_to images_path(view: 'energy', sort: 'created_at', direction: (@sort_column == 'created_at' && @sort_direction == 'asc' ? 'desc' : 'asc')), class: "flex items-center gap-1 hover:opacity-70" do %>
+                      Created
+                      <% if @sort_column == 'created_at' %>
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <% if @sort_direction == 'asc' %>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                          <% else %>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                          <% end %>
+                        </svg>
+                      <% end %>
+                    <% end %>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <% @images.each do |image| %>
+                  <tr class="border-b hover:bg-white/5 transition-colors" style="border-color: hsl(var(--border));">
+                    <td class="p-3">
+                      <%= link_to image_path(image), class: "block" do %>
+                        <img src="<%= image.display_url %>" alt="<%= image.prompt.truncate(30) %>" class="w-16 h-16 object-cover rounded" />
+                      <% end %>
+                    </td>
+                    <td class="p-3" style="color: hsl(var(--foreground));">
+                      <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs" style="background-color: hsl(var(--muted)); color: hsl(var(--foreground));">
+                        <%= image.model_key || 'sd-v1-5' %>
+                      </span>
+                    </td>
+                    <td class="p-3">
+                      <div class="flex flex-col gap-1">
+                        <span class="font-semibold" style="color: hsl(var(--primary));">
+                          <%= image.energy_consumption_wh&.round(2) || 'N/A' %> Wh
+                        </span>
+                        <span class="text-xs flex items-center gap-1" style="color: hsl(var(--muted-foreground));">
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                          </svg>
+                          <%= image.energy_source %>
+                        </span>
+                      </div>
+                    </td>
+                    <td class="p-3" style="color: hsl(var(--foreground));">
+                      <div class="max-w-md truncate" title="<%= image.prompt %>">
+                        <%= image.prompt.truncate(60) %>
+                      </div>
+                    </td>
+                    <td class="p-3" style="color: hsl(var(--muted-foreground));">
+                      <%= image.generation_time&.round(1) || 'N/A' %>s
+                    </td>
+                    <td class="p-3" style="color: hsl(var(--muted-foreground));">
+                      <%= time_ago_in_words(image.created_at) %> ago
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        </div>
       <% else %>
         <%# Date-Grouped Gallery (Midjourney-style) %>
         <div class="space-y-6">

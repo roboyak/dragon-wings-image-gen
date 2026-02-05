@@ -13,6 +13,35 @@ class ImagesController < ApplicationController
       # Gallery: Show only successful/completed images
       @images = base_query.where(status: 'completed').recent
       @view_mode = 'gallery'
+    when 'energy'
+      # Energy: Show completed images with energy tracking, sortable
+      @images = base_query.where(status: 'completed')
+
+      # Apply sorting
+      sort_column = params[:sort] || 'created_at'
+      sort_direction = params[:direction] || 'desc'
+
+      # Map sort columns to valid SQL (including calculated fields)
+      case sort_column
+      when 'created_at'
+        @images = @images.order("created_at #{sort_direction}")
+      when 'model_key'
+        @images = @images.order("model_key #{sort_direction}")
+      when 'prompt'
+        @images = @images.order("prompt #{sort_direction}")
+      when 'energy'
+        # Sort by calculated energy: (updated_at - created_at) * 65W / 3600
+        @images = @images.order(Arel.sql("(EXTRACT(EPOCH FROM (updated_at - created_at)) * 65.0 / 3600.0) #{sort_direction}"))
+      when 'time_taken'
+        # Sort by generation time: (updated_at - created_at)
+        @images = @images.order(Arel.sql("EXTRACT(EPOCH FROM (updated_at - created_at)) #{sort_direction}"))
+      else
+        @images = @images.recent
+      end
+
+      @view_mode = 'energy'
+      @sort_column = sort_column
+      @sort_direction = sort_direction
     when 'history'
       # History: Show ALL images (including failed/generating)
       @images = base_query.recent

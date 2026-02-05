@@ -178,7 +178,7 @@ def add_energy_metadata_jpeg(metadata: dict):
 def add_watermark(image, metadata: dict):
     """
     Add Dragon Wings watermark to image (for free tier downloads).
-    Style: Green pill badge matching gallery thumbnails.
+    Style: Green pill badge with transparent logo + energy value.
 
     Args:
         image: PIL Image object (RGB)
@@ -187,14 +187,27 @@ def add_watermark(image, metadata: dict):
     Returns:
         PIL Image with watermark
     """
-    from PIL import ImageDraw, ImageFont
+    from PIL import ImageDraw, ImageFont, Image as PILImage
+    import os
 
     # Create a copy to avoid modifying original
-    watermarked = image.copy()
-    draw = ImageDraw.Draw(watermarked, 'RGBA')
+    watermarked = image.copy().convert('RGBA')
 
-    # Energy text
-    energy_text = f"⚡ {metadata.get('energy_wh', 0)} Wh"
+    # Load transparent logo
+    logo_path = os.path.join(os.path.dirname(__file__), 'assets', 'watermark_logo.png')
+    try:
+        logo = PILImage.open(logo_path).convert('RGBA')
+        logo_height = 24  # Target logo height
+        aspect_ratio = logo.width / logo.height
+        logo_width = int(logo_height * aspect_ratio)
+        logo = logo.resize((logo_width, logo_height), PILImage.Resampling.LANCZOS)
+    except Exception as e:
+        print(f"Warning: Could not load logo ({e}), using text only")
+        logo = None
+        logo_width = 0
+
+    # Energy text (no emoji - logo provides branding)
+    energy_text = f"{metadata.get('energy_wh', 0)} Wh"
 
     # Font
     try:
@@ -203,36 +216,56 @@ def add_watermark(image, metadata: dict):
         font = ImageFont.load_default()
 
     # Calculate text size
-    text_bbox = draw.textbbox((0, 0), energy_text, font=font)
+    temp_draw = ImageDraw.Draw(PILImage.new('RGBA', (1, 1)))
+    text_bbox = temp_draw.textbbox((0, 0), energy_text, font=font)
     text_width = text_bbox[2] - text_bbox[0]
     text_height = text_bbox[3] - text_bbox[1]
 
-    # Pill dimensions (matching gallery badge)
+    # Pill dimensions (text + spacing + logo + padding)
+    # Order: [Energy value] [Logo]
+    logo_spacing = 8 if logo else 0
     padding_x = 12
     padding_y = 6
-    pill_width = text_width + (padding_x * 2)
-    pill_height = text_height + (padding_y * 2)
+    pill_width = padding_x + text_width + logo_spacing + logo_width + padding_x
+    pill_height = max(logo_height if logo else 0, text_height) + (padding_y * 2)
 
     # Position in bottom-right corner
     pill_x = image.width - pill_width - 12
     pill_y = image.height - pill_height - 12
 
+    # Create pill overlay layer
+    overlay = PILImage.new('RGBA', watermarked.size, (0, 0, 0, 0))
+    overlay_draw = ImageDraw.Draw(overlay)
+
     # Draw pill background (light transparent green)
-    # Light lime green with 70% opacity for subtle branding
     pill_color = (100, 255, 150, 180)  # Light green with transparency
-    draw.rounded_rectangle(
+    overlay_draw.rounded_rectangle(
         [(pill_x, pill_y), (pill_x + pill_width, pill_y + pill_height)],
         radius=pill_height // 2,  # Fully rounded ends
         fill=pill_color
     )
 
-    # Draw text (white, no shadow for clean look)
+    # Composite overlay onto image
+    watermarked = PILImage.alpha_composite(watermarked, overlay)
+
+    # Draw text first (left side)
+    final_draw = ImageDraw.Draw(watermarked)
     text_x = pill_x + padding_x
-    text_y = pill_y + padding_y - 2  # Slight adjustment for vertical centering
+    text_y = pill_y + (pill_height - text_height) // 2
 
-    draw.text((text_x, text_y), energy_text, fill=(255, 255, 255, 255), font=font)
+    final_draw.text((text_x, text_y), energy_text, fill=(255, 255, 255, 255), font=font)
 
-    return watermarked
+    # Paste transparent logo after text (right side)
+    if logo:
+        logo_x = pill_x + padding_x + text_width + logo_spacing
+        logo_y = pill_y + (pill_height - logo_height) // 2
+        watermarked.paste(logo, (logo_x, logo_y), logo)  # Use logo as mask for transparency
+
+    # Convert back to RGB for JPEG
+    rgb_image = PILImage.new('RGB', watermarked.size, (255, 255, 255))
+    rgb_image.paste(watermarked, mask=watermarked.split()[-1])
+
+    return rgb_image
 
 
 def set_finder_comment(filepath: str, metadata: dict):
