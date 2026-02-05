@@ -197,7 +197,7 @@ def add_watermark(image, metadata: dict):
     logo_path = os.path.join(os.path.dirname(__file__), 'assets', 'watermark_logo.png')
     try:
         logo = PILImage.open(logo_path).convert('RGBA')
-        logo_height = 24  # Target logo height
+        logo_height = 37  # Target logo height (32px + 15% = 37px)
         aspect_ratio = logo.width / logo.height
         logo_width = int(logo_height * aspect_ratio)
         logo = logo.resize((logo_width, logo_height), PILImage.Resampling.LANCZOS)
