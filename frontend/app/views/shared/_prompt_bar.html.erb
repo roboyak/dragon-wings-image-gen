@@ -38,7 +38,7 @@
     <%= form_with model: Image.new, url: images_path, method: :post, multipart: true, data: { turbo: false }, class: "flex items-center gap-4 max-w-3xl mx-auto", id: "generate-form" do |f| %>
 
       <%# Mode Toggle (Text/Image) - Pill style %>
-      <div class="mode-toggle flex rounded-full overflow-hidden" style="background-color: hsl(var(--muted));">
+      <div class="mode-toggle flex flex-shrink-0 rounded-full overflow-hidden" style="background-color: hsl(var(--muted));">
         <label class="cursor-pointer">
           <input type="radio" name="generation_mode" value="text_to_image" checked class="peer sr-only" onchange="toggleMode()">
           <span class="mode-toggle-option block transition-all peer-checked:bg-[hsl(var(--primary))] peer-checked:text-white peer-checked:shadow-sm" style="color: hsl(var(--muted-foreground));">Text</span>
